@@ -1,9 +1,9 @@
 using UdonSharp;
 using UnityEngine;
-using SFAdvEquipment.DFUNC;
-using SFAdvEquipment.Utility;
+using TSFE.DFUNC;
+using TSFE.Utility;
 
-namespace SFAdvEquipment.Avionics
+namespace TSFE.Avionics
 {
     [RequireComponent(typeof(AudioSource))]
     [UdonBehaviourSyncMode(BehaviourSyncMode.NoVariableSync)]
@@ -82,7 +82,7 @@ namespace SFAdvEquipment.Avionics
             var smoothingT = deltaTime / smoothing;
 
             radioAltitude = Mathf.Lerp(radioAltitude, GetRadioAltitude(), smoothingT);
-            barometricAltitude = Mathf.Lerp(barometricAltitude, SFAEUtil.ToFeet(groundDetector.position.y - seaLevel), smoothingT);
+            barometricAltitude = Mathf.Lerp(barometricAltitude, TSFEUtil.ToFeet(groundDetector.position.y - seaLevel), smoothingT);
             var barometricDescendRate = -(barometricAltitude - prevBarometricAltitude) / deltaTime * 60;
             prevBarometricAltitude = barometricAltitude;
 
@@ -90,7 +90,7 @@ namespace SFAdvEquipment.Avionics
             velocity = Vector3.Lerp(velocity, position - prevPosition - wind, smoothingT);
             prevPosition = position;
 
-            var airspeed = SFAEUtil.ToKnots(velocity.magnitude);
+            var airspeed = TSFEUtil.ToKnots(velocity.magnitude);
 
             var flapsDown = flaps ? (bool)flaps.GetProgramVariable("Flaps") : false;
             var advancedFlapsDown = advancedFlaps ? advancedFlaps.targetAngle > 0 : false;
@@ -138,13 +138,13 @@ namespace SFAdvEquipment.Avionics
         {
             var position = groundDetector.position;
             RaycastHit hit;
-            if (Physics.Raycast(position, Vector3.down, out hit, SFAEUtil.FromFeet(maxRange), groundLayers, queryTriggerInteraction))
+            if (Physics.Raycast(position, Vector3.down, out hit, TSFEUtil.FromFeet(maxRange), groundLayers, queryTriggerInteraction))
             {
-                return SFAEUtil.ToFeet(hit.distance + offset);
+                return TSFEUtil.ToFeet(hit.distance + offset);
             }
             else
             {
-                return SFAEUtil.ToFeet(position.y - seaLevel + offset);
+                return TSFEUtil.ToFeet(position.y - seaLevel + offset);
             }
         }
 

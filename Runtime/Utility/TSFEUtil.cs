@@ -2,10 +2,10 @@ using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 
-namespace SFAdvEquipment.Utility
+namespace TSFE.Utility
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
-    public class SFAEUtil : UdonSharpBehaviour
+    public class TSFEUtil : UdonSharpBehaviour
     {
         // ============================================================
         // Unit Conversion Constants

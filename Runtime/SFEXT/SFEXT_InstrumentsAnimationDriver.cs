@@ -3,9 +3,9 @@ using UdonSharp;
 using UnityEngine;
 using VRC.Udon;
 using SaccFlightAndVehicles;
-using SFAdvEquipment.Utility;
+using TSFE.Utility;
 
-namespace SFAdvEquipment.SFEXT
+namespace TSFE.SFEXT
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class SFEXT_InstrumentsAnimationDriver : UdonSharpBehaviour
@@ -187,8 +187,8 @@ namespace SFAdvEquipment.SFEXT
         private void ADI_Update(float power)
         {
             var pitch = Mathf.DeltaAngle(vehicleRigidbody.transform.localEulerAngles.x, 0);
-            instrumentsAnimator.SetFloat(pitchFloatParameter, SFAEUtil.Remap01(pitch, -maxPitch, maxPitch) * power);
-            instrumentsAnimator.SetFloat(rollFloatParameter, SFAEUtil.Remap01(Mathf.Lerp(30.0f, roll, power), -180.0f, 180.0f));
+            instrumentsAnimator.SetFloat(pitchFloatParameter, TSFEUtil.Remap01(pitch, -maxPitch, maxPitch) * power);
+            instrumentsAnimator.SetFloat(rollFloatParameter, TSFEUtil.Remap01(Mathf.Lerp(30.0f, roll, power), -180.0f, 180.0f));
         }
 
         private void HI_Update(float power)
@@ -214,32 +214,32 @@ namespace SFAdvEquipment.SFEXT
                 Mathf.PerlinNoise(gustx, gustz + 9999) - .5f)) * windGustStrength) * atmosphere;
 
             var airspeed = Mathf.Max(Vector3.Dot(smoothedVelocity - finalWind, forward), 0);
-            instrumentsAnimator.SetFloat(airspeedFloatParameter, SFAEUtil.ToKnots(airspeed) / maxAirspeed);
+            instrumentsAnimator.SetFloat(airspeedFloatParameter, TSFEUtil.ToKnots(airspeed) / maxAirspeed);
         }
 
         private void Altimeter_Update()
         {
             var seaLevel = (float)SAVControl.GetProgramVariable("SeaLevel");
-            var altitude = SFAEUtil.ToFeet(position.y - seaLevel);
+            var altitude = TSFEUtil.ToFeet(position.y - seaLevel);
             instrumentsAnimator.SetFloat(altitudeFloatParameter, Mathf.Clamp01(altitude / maxAltitude));
         }
 
         private void TC_Update(float power)
         {
             turnRate = Mathf.Lerp(turnRate, (Mathf.DeltaAngle(heading, prevHeading) + Mathf.DeltaAngle(roll, prevRoll) * 0.5f) / deltaTime, deltaTime * turnResponse);
-            instrumentsAnimator.SetFloat(turnRateFloatParameter, SFAEUtil.Remap01(turnRate, -maxTurn, maxTurn) * power);
+            instrumentsAnimator.SetFloat(turnRateFloatParameter, TSFEUtil.Remap01(turnRate, -maxTurn, maxTurn) * power);
         }
 
         private void SI_Update()
         {
             slipAngle = Mathf.Lerp(slipAngle, Mathf.Clamp(Vector3.SignedAngle(-up, Vector3.ProjectOnPlane(Physics.gravity - acceleration, forward), forward), -maxSlip, maxSlip), deltaTime * slipResponse);
-            instrumentsAnimator.SetFloat(slipAngleFloatParameter, SFAEUtil.Remap01(slipAngle, -maxSlip, maxSlip));
+            instrumentsAnimator.SetFloat(slipAngleFloatParameter, TSFEUtil.Remap01(slipAngle, -maxSlip, maxSlip));
         }
 
         private void VSI_Update()
         {
-            var verticalSpeed = SFAEUtil.ToFeet(smoothedVelocity.y) * 60;
-            instrumentsAnimator.SetFloat(verticalSpeedFloatParameter, SFAEUtil.Remap01(verticalSpeed, -maxVerticalSpeed, maxVerticalSpeed));
+            var verticalSpeed = TSFEUtil.ToFeet(smoothedVelocity.y) * 60;
+            instrumentsAnimator.SetFloat(verticalSpeedFloatParameter, TSFEUtil.Remap01(verticalSpeed, -maxVerticalSpeed, maxVerticalSpeed));
         }
 
         private void MC_Update()

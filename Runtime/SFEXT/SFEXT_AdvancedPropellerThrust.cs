@@ -4,9 +4,9 @@ using UnityEngine;
 using VRC.SDKBase;
 using VRC.Udon.Common.Interfaces;
 using SaccFlightAndVehicles;
-using SFAdvEquipment.Utility;
+using TSFE.Utility;
 
-namespace SFAdvEquipment.SFEXT
+namespace TSFE.SFEXT
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.Continuous)]
     public class SFEXT_AdvancedPropellerThrust : UdonSharpBehaviour
@@ -187,7 +187,7 @@ namespace SFAdvEquipment.SFEXT
 
             var deltaTime = Time.deltaTime;
             var seaLevel = (float)SAVControl.GetProgramVariable("SeaLevel");
-            var altitude = SFAEUtil.ToFeet(transform.position.y - seaLevel);
+            var altitude = TSFEUtil.ToFeet(transform.position.y - seaLevel);
             var throttleInput = (float)SAVControl.GetProgramVariable("ThrottleInput");
 
             var bestMixtureControl = bestMixtureControlCurve.Evaluate(altitude);

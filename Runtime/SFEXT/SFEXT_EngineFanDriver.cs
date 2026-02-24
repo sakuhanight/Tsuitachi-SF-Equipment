@@ -2,7 +2,7 @@ using UdonSharp;
 using UnityEngine;
 using SaccFlightAndVehicles;
 
-namespace SFAdvEquipment.SFEXT
+namespace TSFE.SFEXT
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class SFEXT_EngineFanDriver : UdonSharpBehaviour

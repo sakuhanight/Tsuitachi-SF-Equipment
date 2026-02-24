@@ -1,9 +1,9 @@
 using UdonSharp;
 using UnityEngine;
 using SaccFlightAndVehicles;
-using SFAdvEquipment.Utility;
+using TSFE.Utility;
 
-namespace SFAdvEquipment.DFUNC
+namespace TSFE.DFUNC
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class DFUNC_AdvancedThrustReverser : UdonSharpBehaviour
@@ -26,7 +26,7 @@ namespace SFAdvEquipment.DFUNC
 
         public void SFEXT_L_EntityStart()
         {
-            SFAEUtil.SetDialFuncon(Dial_Funcon, Dial_Funcon_Array, false);
+            TSFEUtil.SetDialFuncon(Dial_Funcon, Dial_Funcon_Array, false);
             gameObject.SetActive(false);
         }
 
@@ -48,7 +48,7 @@ namespace SFAdvEquipment.DFUNC
             if (!isPilot) return;
 
             var trigger = Input.GetKey(keyboardControl)
-                || (selected && SFAEUtil.IsTriggerPressed(LeftDial));
+                || (selected && TSFEUtil.IsTriggerPressed(LeftDial));
 
             foreach (var engine in engines)
             {
@@ -61,7 +61,7 @@ namespace SFAdvEquipment.DFUNC
                     engine.SetProgramVariable("reversing", false);
             }
 
-            SFAEUtil.SetDialFuncon(Dial_Funcon, Dial_Funcon_Array, trigger);
+            TSFEUtil.SetDialFuncon(Dial_Funcon, Dial_Funcon_Array, trigger);
         }
     }
 }

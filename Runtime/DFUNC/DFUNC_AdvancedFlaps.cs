@@ -2,9 +2,9 @@ using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 using SaccFlightAndVehicles;
-using SFAdvEquipment.Utility;
+using TSFE.Utility;
 
-namespace SFAdvEquipment.DFUNC
+namespace TSFE.DFUNC
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.Continuous)]
     public class DFUNC_AdvancedFlaps : UdonSharpBehaviour
@@ -202,7 +202,7 @@ namespace SFAdvEquipment.DFUNC
         {
             if (selected)
             {
-                var trigger = SFAEUtil.IsTriggerPressed(LeftDial);
+                var trigger = TSFEUtil.IsTriggerPressed(LeftDial);
                 var triggerChanged = prevTrigger != trigger;
                 prevTrigger = trigger;
 
@@ -244,7 +244,7 @@ namespace SFAdvEquipment.DFUNC
             while (targetDetentIndex < detents.Length - 1 && detents[targetDetentIndex] < targetAngle) targetDetentIndex++;
 
             if (isPilot && targetDetentIndex != prev)
-                SFAEUtil.PlayHaptics(LeftDial, hapticDuration, hapticAmplitude, hapticFrequency);
+                TSFEUtil.PlayHaptics(LeftDial, hapticDuration, hapticAmplitude, hapticFrequency);
 
             targetDetentAngle = detents[targetDetentIndex];
             targetSpeedLimit = speedLimits[targetDetentIndex];
@@ -274,15 +274,15 @@ namespace SFAdvEquipment.DFUNC
 
         private void ApplyDamage(float dt)
         {
-            var airSpeed = SFAEUtil.ToKnots((float)SAVControl.GetProgramVariable("AirSpeed"));
+            var airSpeed = TSFEUtil.ToKnots((float)SAVControl.GetProgramVariable("AirSpeed"));
             var damage = Mathf.Max(airSpeed - speedLimit, 0) / speedLimit * overspeedDamageMultiplier;
             if (damage > 0)
             {
-                if (!actuatorBroken && SFAEUtil.CheckMTBFScaled(dt, meanTimeBetweenActuatorBrokenOnOverspeed, damage))
+                if (!actuatorBroken && TSFEUtil.CheckMTBFScaled(dt, meanTimeBetweenActuatorBrokenOnOverspeed, damage))
                 {
                     actuatorBroken = true;
                 }
-                if (!WingBroken && SFAEUtil.CheckMTBFScaled(dt, meanTimeBetweenWingBrokenOnOverspeed, damage))
+                if (!WingBroken && TSFEUtil.CheckMTBFScaled(dt, meanTimeBetweenWingBrokenOnOverspeed, damage))
                 {
                     WingBroken = true;
                     actuatorBroken = true;

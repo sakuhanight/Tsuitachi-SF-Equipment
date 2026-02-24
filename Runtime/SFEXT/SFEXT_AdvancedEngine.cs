@@ -4,10 +4,10 @@ using UnityEngine;
 using VRC.SDKBase;
 using VRC.Udon.Common.Interfaces;
 using SaccFlightAndVehicles;
-using SFAdvEquipment.DFUNC;
-using SFAdvEquipment.Utility;
+using TSFE.DFUNC;
+using TSFE.Utility;
 
-namespace SFAdvEquipment.SFEXT
+namespace TSFE.SFEXT
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.Continuous)]
     [DefaultExecutionOrder(1000)]
@@ -259,21 +259,21 @@ namespace SFAdvEquipment.SFEXT
             var savFuel = (float)SAVControl.GetProgramVariable("Fuel");
             var savLowFuel = (float)SAVControl.GetProgramVariable("LowFuel");
             var targetN2 = (isStarterAvailable || isN2Running)
-                ? Mathf.Lerp(fuel ? idleN2 : minN2 * 1.1f, takeOffN2, throttleInput) * SFAEUtil.ClampedRemap01(savFuel, 0, savLowFuel)
+                ? Mathf.Lerp(fuel ? idleN2 : minN2 * 1.1f, takeOffN2, throttleInput) * TSFEUtil.ClampedRemap01(savFuel, 0, savLowFuel)
                 : 0.0f;
             n2 = TwoWayMoveTowards(n2, targetN2, deltaTime * continuousN2 * Randomize(), isN2Running ? n2Response : n2StartupResponse, n2DecreaseResponse);
 
-            var targetN1 = SFAEUtil.Lerp3(0, idleN1, takeOffN1, n2, 0, idleN2, takeOffN2);
+            var targetN1 = TSFEUtil.Lerp3(0, idleN1, takeOffN1, n2, 0, idleN2, takeOffN2);
             n1 = Mathf.MoveTowards(n1, targetN1, deltaTime * n1Response * continuousN1 * Randomize());
 
             normalizedThrust = Mathf.Clamp01(Mathf.Pow(n1 / takeOffN1, thrustCurve));
 
             var egtTarget = fire
                 ? fireEGT
-                : SFAEUtil.Lerp4(externalTemperature, fuel ? idleEGT : externalTemperature, continuousEGT, takeOffEGT, n2, 0, idleN2, continuousN2, takeOffN2);
+                : TSFEUtil.Lerp4(externalTemperature, fuel ? idleEGT : externalTemperature, continuousEGT, takeOffEGT, n2, 0, idleN2, continuousN2, takeOffN2);
             egt = Mathf.Lerp(egt, egtTarget, deltaTime * egtResponse * Randomize());
 
-            var ectTarget = SFAEUtil.Lerp4(externalTemperature, idleECT, continuousECT, egt, egt, externalTemperature, idleEGT, continuousEGT, takeOffEGT);
+            var ectTarget = TSFEUtil.Lerp4(externalTemperature, idleECT, continuousECT, egt, egt, externalTemperature, idleEGT, continuousEGT, takeOffEGT);
             ect = Mathf.Lerp(ect, ectTarget, deltaTime * (egt <= continuousEGT || fire ? ectResponse : ectOverheatResponse) * Randomize());
 
             SAVControl.SetProgramVariable("EngineOutput", normalizedThrust);
@@ -291,8 +291,8 @@ namespace SFAdvEquipment.SFEXT
                 vehicleAnimator.SetFloat("reverser", reverserPosition);
             }
 
-            oilTemperature = SFAEUtil.Lerp4(externalTemperature, idleOilTemperature, maxOilTemperature, takeOffOilTemperature, ect, externalTemperature, idleECT, continuousECT, Mathf.Max(egt, continuousEGT));
-            oilPressure = SFAEUtil.Lerp3(1013.25f, idleOilPressure, maxOilPressure, n2, 0, idleN2, takeOffN2);
+            oilTemperature = TSFEUtil.Lerp4(externalTemperature, idleOilTemperature, maxOilTemperature, takeOffOilTemperature, ect, externalTemperature, idleECT, continuousECT, Mathf.Max(egt, continuousEGT));
+            oilPressure = TSFEUtil.Lerp3(1013.25f, idleOilPressure, maxOilPressure, n2, 0, idleN2, takeOffN2);
         }
         #endregion
 
@@ -331,12 +331,12 @@ namespace SFAdvEquipment.SFEXT
             var doppler = isInside ? 1.0f : Mathf.Min(soundController ? (float)soundController.GetProgramVariable("Doppler") : 1.0f, 2.25f);
             var silent = soundController ? (bool)soundController.GetProgramVariable("silent") : false;
 
-            var n2ToIdle = SFAEUtil.Remap01(n2, 0, idleN2);
-            var n1ToIdle = SFAEUtil.Remap01(n1, 0, idleN1);
-            SetAudioVolumeAndPitch(idleSound, isInside ? 0.0f : n2ToIdle * idleVolume, SFAEUtil.Lerp3(0.0f, 1.0f, 2.7f, n2, 0.0f, idleN2, continuousN2) * doppler, soundResponse * deltaTime);
-            SetAudioVolumeAndPitch(insideSound, isInside ? n1ToIdle * insideVolume : 0, SFAEUtil.Lerp3(0.0f, 0.8f, 1.2f, n1, 0, idleN1, takeOffN1), soundResponse * deltaTime);
-            SetAudioVolumeAndPitch(thrustSound, n1ToIdle * thrustVolume * SFAEUtil.ClampedRemap01(n1, idleN1, takeOffN1) * (isInside ? 0.09f : 1.0f) * (silent ? 0.0f : 1.0f) * doppler, 1, soundResponse * deltaTime);
-            SetAudioVolumeAndPitch(takeOffSound, n1ToIdle * takeOffVolume * SFAEUtil.ClampedRemap01(n1, continuousN1, takeOffN1) * (isInside ? 0.09f : 1.0f) * (silent ? 0.0f : 1.0f) * doppler, 1, soundResponse * deltaTime);
+            var n2ToIdle = TSFEUtil.Remap01(n2, 0, idleN2);
+            var n1ToIdle = TSFEUtil.Remap01(n1, 0, idleN1);
+            SetAudioVolumeAndPitch(idleSound, isInside ? 0.0f : n2ToIdle * idleVolume, TSFEUtil.Lerp3(0.0f, 1.0f, 2.7f, n2, 0.0f, idleN2, continuousN2) * doppler, soundResponse * deltaTime);
+            SetAudioVolumeAndPitch(insideSound, isInside ? n1ToIdle * insideVolume : 0, TSFEUtil.Lerp3(0.0f, 0.8f, 1.2f, n1, 0, idleN1, takeOffN1), soundResponse * deltaTime);
+            SetAudioVolumeAndPitch(thrustSound, n1ToIdle * thrustVolume * TSFEUtil.ClampedRemap01(n1, idleN1, takeOffN1) * (isInside ? 0.09f : 1.0f) * (silent ? 0.0f : 1.0f) * doppler, 1, soundResponse * deltaTime);
+            SetAudioVolumeAndPitch(takeOffSound, n1ToIdle * takeOffVolume * TSFEUtil.ClampedRemap01(n1, continuousN1, takeOffN1) * (isInside ? 0.09f : 1.0f) * (silent ? 0.0f : 1.0f) * doppler, 1, soundResponse * deltaTime);
         }
         #endregion
 
@@ -383,7 +383,7 @@ namespace SFAdvEquipment.SFEXT
 
         private void Fault_OwnerUpdate(float deltaTime)
         {
-            if (!fire && !dished && UnityEngine.Random.value < deltaTime / SFAEUtil.Lerp3(mtbFireAtContinuous, mtbFireAtOverheat, mtbFireAtFire, ect, continuousECT, overheatECT, fireECT))
+            if (!fire && !dished && UnityEngine.Random.value < deltaTime / TSFEUtil.Lerp3(mtbFireAtContinuous, mtbFireAtOverheat, mtbFireAtFire, ect, continuousECT, overheatECT, fireECT))
             {
                 fire = true;
             }
@@ -433,7 +433,7 @@ namespace SFAdvEquipment.SFEXT
             var inletDistance = inletPlayerPosition.magnitude;
             var inletDirection = inletPlayerPosition / inletDistance;
 
-            if (inletDirection.z > 0 && inletDistance < SFAEUtil.Lerp3(0, inletAreaIdleRange, inletAreaTakeOffRange, n1, 0, idleN1, takeOffN1) && Mathf.Abs(Vector3.SignedAngle(Vector3.forward, inletDirection, Vector3.up)) < inletAreaAngle)
+            if (inletDirection.z > 0 && inletDistance < TSFEUtil.Lerp3(0, inletAreaIdleRange, inletAreaTakeOffRange, n1, 0, idleN1, takeOffN1) && Mathf.Abs(Vector3.SignedAngle(Vector3.forward, inletDirection, Vector3.up)) < inletAreaAngle)
             {
                 if (inletDistance < strikeDistance)
                 {
@@ -447,12 +447,12 @@ namespace SFAdvEquipment.SFEXT
                 var exhaustDistance = exhaustPlayerPosition.magnitude;
                 var exhaustDirection = exhaustPlayerPosition / exhaustDistance;
 
-                if (exhaustDirection.z < 0 && Mathf.Abs(exhaustPlayerPosition.x) < exhaustAreaExtent && exhaustDistance < SFAEUtil.Lerp3(0, exhaustAreaIdleRange, exhaustAreaTakeOffRange, n1, 0, idleN1, takeOffN1) && Mathf.Abs(Vector3.SignedAngle(Vector3.back, exhaustDirection, Vector3.up)) < exhaustAreaAngle)
+                if (exhaustDirection.z < 0 && Mathf.Abs(exhaustPlayerPosition.x) < exhaustAreaExtent && exhaustDistance < TSFEUtil.Lerp3(0, exhaustAreaIdleRange, exhaustAreaTakeOffRange, n1, 0, idleN1, takeOffN1) && Mathf.Abs(Vector3.SignedAngle(Vector3.back, exhaustDirection, Vector3.up)) < exhaustAreaAngle)
                 {
                     AddPlayerForce(localPlayer, -transform.forward * Mathf.Lerp(idlePlayerAcceleration, takeOffPlayerAcceleration, normalizedThrust));
                 }
 
-                if (exhaustDirection.z > 0 && reverserPosition > 0.5f && Mathf.Abs(exhaustPlayerPosition.x) < exhaustAreaExtent && exhaustDistance < SFAEUtil.Lerp3(0, exhaustAreaIdleRange, exhaustAreaTakeOffRange, n1, 0, idleN1, takeOffN1) && Mathf.Abs(Vector3.SignedAngle(Vector3.forward, exhaustDirection, Vector3.up)) < exhaustAreaAngle)
+                if (exhaustDirection.z > 0 && reverserPosition > 0.5f && Mathf.Abs(exhaustPlayerPosition.x) < exhaustAreaExtent && exhaustDistance < TSFEUtil.Lerp3(0, exhaustAreaIdleRange, exhaustAreaTakeOffRange, n1, 0, idleN1, takeOffN1) && Mathf.Abs(Vector3.SignedAngle(Vector3.forward, exhaustDirection, Vector3.up)) < exhaustAreaAngle)
                 {
                     AddPlayerForce(localPlayer, transform.forward * Mathf.Lerp(idlePlayerAcceleration, takeOffPlayerAcceleration, normalizedThrust));
                 }
@@ -495,9 +495,9 @@ namespace SFAdvEquipment.SFEXT
 
         private void JetBlast_Update()
         {
-            SetParticleEmission(blastParticle, !Mathf.Approximately(n1, 0), SFAEUtil.Lerp3(0, blastIdleSpeed, blastTakeOffSpeed, n1, 0, idleN1, takeOffN2));
+            SetParticleEmission(blastParticle, !Mathf.Approximately(n1, 0), TSFEUtil.Lerp3(0, blastIdleSpeed, blastTakeOffSpeed, n1, 0, idleN1, takeOffN2));
             var reverserIntensity = Mathf.Clamp01(reverserPosition * 2 - 1);
-            SetParticleEmission(reverserBlastParticle, !Mathf.Approximately(n1 * reverserIntensity, 0), SFAEUtil.Lerp3(0, blastIdleSpeed, blastTakeOffSpeed, n1, 0, idleN1, takeOffN2) * reverserIntensity * reverserRatio);
+            SetParticleEmission(reverserBlastParticle, !Mathf.Approximately(n1 * reverserIntensity, 0), TSFEUtil.Lerp3(0, blastIdleSpeed, blastTakeOffSpeed, n1, 0, idleN1, takeOffN2) * reverserIntensity * reverserRatio);
         }
         #endregion
 

@@ -2,9 +2,9 @@ using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 using SaccFlightAndVehicles;
-using SFAdvEquipment.Utility;
+using TSFE.Utility;
 
-namespace SFAdvEquipment.DFUNC
+namespace TSFE.DFUNC
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class DFUNC_SeatAdjuster : UdonSharpBehaviour

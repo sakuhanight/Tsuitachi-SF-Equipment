@@ -2,9 +2,9 @@ using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 using SaccFlightAndVehicles;
-using SFAdvEquipment.Utility;
+using TSFE.Utility;
 
-namespace SFAdvEquipment.DFUNC
+namespace TSFE.DFUNC
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
     public class DFUNC_AdvancedParkingBrake : UdonSharpBehaviour
@@ -28,7 +28,7 @@ namespace SFAdvEquipment.DFUNC
                 _state = value;
                 if (!initialized) return;
                 if (vehicleAnimator) vehicleAnimator.SetBool(parameterName, value);
-                SFAEUtil.SetDialFuncon(Dial_Funcon, Dial_Funcon_Array, value);
+                TSFEUtil.SetDialFuncon(Dial_Funcon, Dial_Funcon_Array, value);
                 if (gears != null)
                 {
                     foreach (var gear in gears) gear.SetProgramVariable("parkingBrake", value);
@@ -86,7 +86,7 @@ namespace SFAdvEquipment.DFUNC
 
             if (selected && Networking.LocalPlayer.IsUserInVR())
             {
-                var trigger = SFAEUtil.IsTriggerPressed(LeftDial);
+                var trigger = TSFEUtil.IsTriggerPressed(LeftDial);
                 if (trigger && !_triggerLastFrame) Toggle();
                 _triggerLastFrame = trigger;
             }

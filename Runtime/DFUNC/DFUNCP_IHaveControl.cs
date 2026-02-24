@@ -3,9 +3,9 @@ using UnityEngine;
 using VRC.SDKBase;
 using VRC.Udon.Common.Interfaces;
 using SaccFlightAndVehicles;
-using SFAdvEquipment.Utility;
+using TSFE.Utility;
 
-namespace SFAdvEquipment.DFUNC
+namespace TSFE.DFUNC
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.NoVariableSync)]
     public class DFUNCP_IHaveControl : UdonSharpBehaviour
@@ -91,7 +91,7 @@ namespace SFAdvEquipment.DFUNC
 
             var deltaTime = Time.deltaTime;
 
-            if (Input.GetKey(desktopControl) || isSelected && SFAEUtil.IsTriggerPressed(LeftDial))
+            if (Input.GetKey(desktopControl) || isSelected && TSFEUtil.IsTriggerPressed(LeftDial))
             {
                 pressingTime += deltaTime;
             }

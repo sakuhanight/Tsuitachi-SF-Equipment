@@ -3,7 +3,7 @@ using UnityEngine;
 using VRC.SDKBase;
 using SaccFlightAndVehicles;
 
-namespace SFAdvEquipment.SFEXT
+namespace TSFE.SFEXT
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class SFEXT_BoardingCollider : UdonSharpBehaviour

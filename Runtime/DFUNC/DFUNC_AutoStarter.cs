@@ -3,10 +3,10 @@ using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 using SaccFlightAndVehicles;
-using SFAdvEquipment.SFEXT;
-using SFAdvEquipment.Utility;
+using TSFE.SFEXT;
+using TSFE.Utility;
 
-namespace SFAdvEquipment.DFUNC
+namespace TSFE.DFUNC
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
     [DefaultExecutionOrder(1000)]
@@ -49,7 +49,7 @@ namespace SFAdvEquipment.DFUNC
             start = false;
             state = STATE_OFF;
 
-            SFAEUtil.SetDialFuncon(Dial_Funcon, Dial_Funcon_Array, false);
+            TSFEUtil.SetDialFuncon(Dial_Funcon, Dial_Funcon_Array, false);
 
             gameObject.SetActive(false);
             initialized = true;
@@ -111,19 +111,19 @@ namespace SFAdvEquipment.DFUNC
                     SAVControl.SetProgramVariable("ThrottleInput", 0f);
                 }
 
-                var trigger = selected && SFAEUtil.IsTriggerPressed(LeftDial);
+                var trigger = selected && TSFEUtil.IsTriggerPressed(LeftDial);
                 if (!prevTrigger && trigger) SetStart(!start);
                 prevTrigger = trigger;
             }
 
             if (isOwner)
             {
-                SFAEUtil.SetDialFuncon(Dial_Funcon, Dial_Funcon_Array, start);
+                TSFEUtil.SetDialFuncon(Dial_Funcon, Dial_Funcon_Array, start);
             }
             else if (isPassenger)
             {
                 var remoteStart = state != STATE_OFF;
-                SFAEUtil.SetDialFuncon(Dial_Funcon, Dial_Funcon_Array, remoteStart);
+                TSFEUtil.SetDialFuncon(Dial_Funcon, Dial_Funcon_Array, remoteStart);
             }
 
             var stateChanged = state != prevState;

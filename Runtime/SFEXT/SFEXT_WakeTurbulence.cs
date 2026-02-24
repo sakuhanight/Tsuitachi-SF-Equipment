@@ -1,9 +1,9 @@
 using UdonSharp;
 using UnityEngine;
 using SaccFlightAndVehicles;
-using SFAdvEquipment.Utility;
+using TSFE.Utility;
 
-namespace SFAdvEquipment.SFEXT
+namespace TSFE.SFEXT
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class SFEXT_WakeTurbulence : UdonSharpBehaviour
@@ -52,8 +52,8 @@ namespace SFAdvEquipment.SFEXT
             prevPosition = position;
 
             var wind = (Vector3)SAVControl.GetProgramVariable("Wind");
-            var airspeed = Vector3.Distance(velocity, wind) * SFAEUtil.MS_TO_KNOTS;
-            var strength = Mathf.Pow(SFAEUtil.Lerp3(0, 1, 0, airspeed, minSpeed, peakSpeed, maxSpeed), curve);
+            var airspeed = Vector3.Distance(velocity, wind) * TSFEUtil.MS_TO_KNOTS;
+            var strength = Mathf.Pow(TSFEUtil.Lerp3(0, 1, 0, airspeed, minSpeed, peakSpeed, maxSpeed), curve);
 
             var enabled = !Mathf.Approximately(strength, 0);
             for (var i = 0; i < particles.Length; i++)

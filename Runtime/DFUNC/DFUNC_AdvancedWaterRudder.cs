@@ -2,9 +2,9 @@ using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 using SaccFlightAndVehicles;
-using SFAdvEquipment.Utility;
+using TSFE.Utility;
 
-namespace SFAdvEquipment.DFUNC
+namespace TSFE.DFUNC
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
     public class DFUNC_AdvancedWaterRudder : UdonSharpBehaviour
@@ -37,7 +37,7 @@ namespace SFAdvEquipment.DFUNC
         {
             set
             {
-                SFAEUtil.SetDialFuncon(Dial_Funcon, Dial_Funcon_Array, value);
+                TSFEUtil.SetDialFuncon(Dial_Funcon, Dial_Funcon_Array, value);
                 if (vehicleAnimator) vehicleAnimator.SetBool("waterrudder", value);
                 _extracted = value;
             }
@@ -95,7 +95,7 @@ namespace SFAdvEquipment.DFUNC
         {
             if (selected)
             {
-                var trigger = SFAEUtil.IsTriggerPressed(LeftDial);
+                var trigger = TSFEUtil.IsTriggerPressed(LeftDial);
                 if (trigger && !prevTrigger) Toggle();
                 prevTrigger = trigger;
             }

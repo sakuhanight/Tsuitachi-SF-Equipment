@@ -2,9 +2,9 @@ using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 using SaccFlightAndVehicles;
-using SFAdvEquipment.Utility;
+using TSFE.Utility;
 
-namespace SFAdvEquipment.SFEXT
+namespace TSFE.SFEXT
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.Continuous)]
     public class SFEXT_AdvancedGear : UdonSharpBehaviour
@@ -142,7 +142,7 @@ namespace SFAdvEquipment.SFEXT
             var deltaTime = Time.deltaTime;
             var taxiing = (bool)SAVControl.GetProgramVariable("Taxiing");
 
-            var groundVelocity = (isOwner ? vehicleRigidbody.velocity : (vehicleRigidbody.position - prevVehiclePosition) / deltaTime) * SFAEUtil.MS_TO_KNOTS;
+            var groundVelocity = (isOwner ? vehicleRigidbody.velocity : (vehicleRigidbody.position - prevVehiclePosition) / deltaTime) * TSFEUtil.MS_TO_KNOTS;
             prevVehiclePosition = vehicleRigidbody.position;
 
             var groundSpeed = Vector3.Dot(groundVelocity, vehicleRigidbody.transform.forward);
@@ -189,7 +189,7 @@ namespace SFAdvEquipment.SFEXT
 
                 if (wheelTransform || steerTransform)
                 {
-                    var rpm = isOwner ? wheelCollider.rpm : groundSpeed * SFAEUtil.KNOTS_TO_MS * 60.0f / (2 * wheelCollider.radius * Mathf.PI);
+                    var rpm = isOwner ? wheelCollider.rpm : groundSpeed * TSFEUtil.KNOTS_TO_MS * 60.0f / (2 * wheelCollider.radius * Mathf.PI);
                     if (taxiing) wheelAngle = (wheelAngle + rpm * 360 / 60 * deltaTime) % 360;
                     var steerRotation = Quaternion.AngleAxis(wheelCollider.steerAngle, wheelUp);
                     if (wheelTransform) wheelTransform.localRotation = wheelRotationOffset * (steerTransform ? Quaternion.identity : steerRotation) * Quaternion.AngleAxis(wheelAngle, wheelRight);
@@ -201,7 +201,7 @@ namespace SFAdvEquipment.SFEXT
             {
                 if (!retracted)
                 {
-                    var ias = SFAEUtil.ToKnots((float)SAVControl.GetProgramVariable("AirSpeed"));
+                    var ias = TSFEUtil.ToKnots((float)SAVControl.GetProgramVariable("AirSpeed"));
                     var maxSpeed = _GetMaxSpeed();
                     var overspeed = maxSpeed > 0 && ias > maxSpeed;
                     var mtbfMultiplier = overspeed ? ias / maxSpeed : 1.0f;

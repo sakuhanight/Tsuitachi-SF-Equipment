@@ -3,7 +3,7 @@ using UnityEngine;
 using VRC.SDKBase;
 using VRC.Udon.Common.Interfaces;
 
-namespace SFAdvEquipment.Accessories
+namespace TSFE.Accessories
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.Continuous)]
     public class PickupChock : UdonSharpBehaviour

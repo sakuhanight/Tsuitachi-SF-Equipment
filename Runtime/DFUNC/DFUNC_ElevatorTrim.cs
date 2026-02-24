@@ -1,9 +1,9 @@
 using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
-using SFAdvEquipment.Utility;
+using TSFE.Utility;
 
-namespace SFAdvEquipment.DFUNC
+namespace TSFE.DFUNC
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.Continuous)]
     public class DFUNC_ElevatorTrim : UdonSharpBehaviour
@@ -124,7 +124,7 @@ namespace SFAdvEquipment.DFUNC
                 trim = Mathf.Clamp(trim + sliderInput, -1, 1);
                 if (!Mathf.Approximately(sliderInput, 0) && Time.frameCount % Mathf.Max(1, Mathf.FloorToInt(hapticDuration / Time.fixedDeltaTime)) == 0)
                 {
-                    SFAEUtil.PlayHaptics(LeftDial, hapticDuration, hapticAmplitude, hapticFrequency);
+                    TSFEUtil.PlayHaptics(LeftDial, hapticDuration, hapticAmplitude, hapticFrequency);
                 }
             }
 
@@ -133,7 +133,7 @@ namespace SFAdvEquipment.DFUNC
             if (trimChanged)
             {
                 isDirty = true;
-                if (vehicleAnimator) vehicleAnimator.SetFloat(animatorParameterName, SFAEUtil.Remap01(trim, -1, 1));
+                if (vehicleAnimator) vehicleAnimator.SetFloat(animatorParameterName, TSFEUtil.Remap01(trim, -1, 1));
             }
 
             if (!hasPilot && !isDirty) gameObject.SetActive(false);
@@ -144,7 +144,7 @@ namespace SFAdvEquipment.DFUNC
             if (!isPilot) return;
 
             prevTriggered = triggered;
-            triggered = isSelected && SFAEUtil.IsTriggerPressed(LeftDial) || debugControllerTransform;
+            triggered = isSelected && TSFEUtil.IsTriggerPressed(LeftDial) || debugControllerTransform;
 
             if (triggered)
             {

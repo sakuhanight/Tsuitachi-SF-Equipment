@@ -2,9 +2,9 @@ using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 using SaccFlightAndVehicles;
-using SFAdvEquipment.Utility;
+using TSFE.Utility;
 
-namespace SFAdvEquipment.DFUNC
+namespace TSFE.DFUNC
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.Continuous)]
     public class DFUNC_AdvancedSpeedBrake : UdonSharpBehaviour
@@ -41,7 +41,7 @@ namespace SFAdvEquipment.DFUNC
             {
                 var clamped = Mathf.Clamp01(value);
                 if (vehicleAnimator) vehicleAnimator.SetFloat(floatInputParameterName, clamped);
-                SFAEUtil.SetDialFuncon(Dial_Funcon, Dial_Funcon_Array, clamped > 0);
+                TSFEUtil.SetDialFuncon(Dial_Funcon, Dial_Funcon_Array, clamped > 0);
                 _targetAngle = clamped;
             }
             get => _targetAngle;
@@ -111,7 +111,7 @@ namespace SFAdvEquipment.DFUNC
         {
             if (isPilot)
             {
-                TriggerState = isSelected && SFAEUtil.IsTriggerPressed(LeftDial);
+                TriggerState = isSelected && TSFEUtil.IsTriggerPressed(LeftDial);
                 if (Input.GetKeyDown(desktopKey)) TargetAngle = 1.0f;
                 else if (Input.GetKeyUp(desktopKey)) TargetAngle = 0.0f;
             }

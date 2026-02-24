@@ -2,7 +2,7 @@ using System;
 using UdonSharp;
 using UnityEngine;
 
-namespace SFAdvEquipment.SFEXT
+namespace TSFE.SFEXT
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
     public class SFEXT_AuxiliaryPowerUnit : UdonSharpBehaviour

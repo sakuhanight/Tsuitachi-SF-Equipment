@@ -1,10 +1,10 @@
 using UdonSharp;
 using UnityEngine;
 using SaccFlightAndVehicles;
-using SFAdvEquipment.DFUNC;
-using SFAdvEquipment.Utility;
+using TSFE.DFUNC;
+using TSFE.Utility;
 
-namespace SFAdvEquipment.Avionics
+namespace TSFE.Avionics
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class AuralWarnings : UdonSharpBehaviour
@@ -55,7 +55,7 @@ namespace SFAdvEquipment.Avionics
             var wind = SAVControl ? (Vector3)SAVControl.GetProgramVariable("Wind") : Vector3.zero;
             var airVel = velocity - wind;
 
-            var ias = Mathf.Max(Vector3.Dot(origin.forward, airVel), 0) * SFAEUtil.MS_TO_KNOTS;
+            var ias = Mathf.Max(Vector3.Dot(origin.forward, airVel), 0) * TSFEUtil.MS_TO_KNOTS;
 
             var vmo = defaultVmo;
             if (advancedFlaps) vmo = Mathf.Min(advancedFlaps.targetSpeedLimit, advancedFlaps.speedLimit);
@@ -63,7 +63,7 @@ namespace SFAdvEquipment.Avionics
             SetVolume(overspeed, playOverspeed ? 1.0f : 0.0f);
 
             var aoa = ias > 10f ? Mathf.Atan2(Vector3.Dot(origin.up, airVel), Vector3.Dot(origin.forward, airVel)) * Mathf.Rad2Deg : 0.0f;
-            var stickShakerVolume = Mathf.Pow(SFAEUtil.ClampedRemap01(-aoa, stickShakerStartAoA, stickShakerMaxAoA), 0.1f);
+            var stickShakerVolume = Mathf.Pow(TSFEUtil.ClampedRemap01(-aoa, stickShakerStartAoA, stickShakerMaxAoA), 0.1f);
             SetVolume(stickShaker, stickShakerVolume);
         }
 

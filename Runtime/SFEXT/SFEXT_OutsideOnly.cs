@@ -1,7 +1,7 @@
 using UdonSharp;
 using UnityEngine;
 
-namespace SFAdvEquipment.SFEXT
+namespace TSFE.SFEXT
 {
     [UdonBehaviourSyncMode(BehaviourSyncMode.None)]
     public class SFEXT_OutsideOnly : UdonSharpBehaviour
