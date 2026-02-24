@@ -1,0 +1,30 @@
+# Reference repositories (git clones for development reference)
+EsnyaSFAddons/
+SaccFlightAndVehicles/
+
+# Unity
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+*.pidb
+*.suo
+*.sln
+*.csproj
+*.unityproj
+*.user
+*.tmp
+*.bak
+*.swp
+
+# IDE
+.vs/
+.idea/
+*.DotSettings.user
+
+# OS
+.DS_Store
+Thumbs.db

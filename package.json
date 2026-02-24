@@ -1,0 +1,16 @@
+{
+  "name": "com.sakuha.sf-advequipment",
+  "displayName": "SF-AdvancedEquipment",
+  "version": "0.1.0",
+  "description": "Advanced equipment for SaccFlightAndVehicles 1.8",
+  "license": "MIT",
+  "author": {
+    "name": "sakuha"
+  },
+  "unity": "2022.3",
+  "dependencies": {},
+  "vpmDependencies": {
+    "com.vrchat.worlds": "3.7.0",
+    "io.github.sacchan-vrc.sacc-flight-and-vehicles": "1.8.0"
+  }
+}
