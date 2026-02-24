@@ -1,11 +1,11 @@
 {
-  "name": "com.sakuha.tsuitachi-sf-equipment",
+  "name": "net.tsuitachi.sf-equipment",
   "displayName": "Tsuitachi-SF-Equipment",
   "version": "0.1.0",
   "description": "Advanced equipment for SaccFlightAndVehicles 1.8",
   "license": "MIT",
   "author": {
-    "name": "sakuha"
+    "name": "sakuhanight"
   },
   "unity": "2022.3",
   "dependencies": {},
