@@ -1,6 +1,7 @@
 using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
+using SaccFlightAndVehicles;
 using TSFE.Utility;
 
 namespace TSFE.DFUNC
@@ -9,7 +10,7 @@ namespace TSFE.DFUNC
     public class DFUNC_ElevatorTrim : UdonSharpBehaviour
     {
         public float controllerSensitivity = 0.5f;
-        public KeyCode desktopUp = KeyCode.T;
+        public KeyCode desktopUp = KeyCode.U;
         public KeyCode desktopDown = KeyCode.Y;
         public float desktopStep = 0.02f;
         public float trimStrengthMultiplier = 1;
@@ -69,7 +70,9 @@ namespace TSFE.DFUNC
             rotMultiMaxSpeed = (float)SAVControl.GetProgramVariable("RotMultiMaxSpeed");
             vehicleRigidbody = entity.GetComponent<Rigidbody>();
             vehicleAnimator = (Animator)SAVControl.GetProgramVariable("VehicleAnimator");
-            trimStrength = (float)SAVControl.GetProgramVariable("PitchStrength") * trimStrengthMultiplier;
+
+            var pitchStrength = (float)SAVControl.GetProgramVariable("PitchStrength");
+            trimStrength = pitchStrength * trimStrengthMultiplier;
 
             ResetStatus();
         }
@@ -102,17 +105,12 @@ namespace TSFE.DFUNC
 
         private void FixedUpdate()
         {
-            if (!isOwner) return;
+            if (!isOwner || !isPilot) return;
 
-            var airVel = (Vector3)SAVControl.GetProgramVariable("AirVel");
-            var airspeed = Vector3.Dot(airVel, transform.forward);
-            if (airspeed < 0.1f) return;
-
-            var rotlift = Mathf.Clamp(airspeed / rotMultiMaxSpeed, -1, 1);
-            var atmosphere = (float)SAVControl.GetProgramVariable("Atmosphere");
-            vehicleRigidbody.AddForceAtPosition(
-                transform.up * (Mathf.Sign(trim) * Mathf.Pow(Mathf.Abs(trim), trimStrengthCurve) + trimBias) * trimStrength * rotlift * atmosphere,
-                transform.position, ForceMode.Force);
+            var rotInputs = (Vector3)SAVControl.GetProgramVariable("RotationInputs");
+            var trimComponent = -(Mathf.Sign(trim) * Mathf.Pow(Mathf.Abs(trim), trimStrengthCurve) + trimBias);
+            rotInputs.x = Mathf.Clamp(rotInputs.x + trimComponent * trimStrengthMultiplier, -1, 1);
+            SAVControl.SetProgramVariable("RotationInputs", rotInputs);
         }
 
         private void Update()
@@ -154,7 +152,12 @@ namespace TSFE.DFUNC
 
                 if (prevTriggered)
                 {
-                    sliderInput = Mathf.Clamp(Vector3.Dot(pos - prevTrackingPosition, vrInputAxis) * controllerSensitivity, -1, 1);
+                    var delta = pos - prevTrackingPosition;
+                    sliderInput = Vector3.Dot(delta, vrInputAxis) * controllerSensitivity;
+                }
+                else
+                {
+                    sliderInput = 0;
                 }
                 prevTrackingPosition = pos;
             }
@@ -163,8 +166,14 @@ namespace TSFE.DFUNC
                 sliderInput = 0;
             }
 
-            if (Input.GetKeyDown(desktopUp)) sliderInput = desktopStep;
-            if (Input.GetKeyDown(desktopDown)) sliderInput = -desktopStep;
+            if (Input.GetKeyDown(desktopUp))
+            {
+                sliderInput = desktopStep;
+            }
+            if (Input.GetKeyDown(desktopDown))
+            {
+                sliderInput = -desktopStep;
+            }
         }
 
         public void TrimUp() { trim += desktopStep; }
