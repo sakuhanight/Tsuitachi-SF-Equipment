@@ -28,34 +28,46 @@ namespace TSFE.Utility
         [Tooltip("パラメータの最大値")]
         public float inputMax = 1.0f;
 
+        [Tooltip("入力を反転する（Min/Maxを入れ替える）")]
+        public bool invertInput = false;
+
         [Header("位置制御（ローカル座標）")]
         [Tooltip("位置を制御する")]
         public bool controlPosition = false;
 
-        [Tooltip("最小値時の位置")]
+        [Tooltip("相対位置モード（初期位置からのオフセット）")]
+        public bool relativePosition = false;
+
+        [Tooltip("最小値時の位置（relative=falseなら絶対座標、trueならオフセット）")]
         public Vector3 positionMin = Vector3.zero;
 
-        [Tooltip("最大値時の位置")]
+        [Tooltip("最大値時の位置（relative=falseなら絶対座標、trueならオフセット）")]
         public Vector3 positionMax = Vector3.zero;
 
         [Header("回転制御（ローカル回転）")]
         [Tooltip("回転を制御する")]
         public bool controlRotation = false;
 
-        [Tooltip("最小値時の回転（Euler角）")]
+        [Tooltip("相対回転モード（初期回転からのオフセット）")]
+        public bool relativeRotation = false;
+
+        [Tooltip("最小値時の回転（Euler角、relative=falseなら絶対角度、trueならオフセット）")]
         public Vector3 rotationMin = Vector3.zero;
 
-        [Tooltip("最大値時の回転（Euler角）")]
+        [Tooltip("最大値時の回転（Euler角、relative=falseなら絶対角度、trueならオフセット）")]
         public Vector3 rotationMax = Vector3.zero;
 
         [Header("スケール制御")]
         [Tooltip("スケールを制御する")]
         public bool controlScale = false;
 
-        [Tooltip("最小値時のスケール")]
+        [Tooltip("相対スケールモード（初期スケールからの乗算）")]
+        public bool relativeScale = false;
+
+        [Tooltip("最小値時のスケール（relative=falseなら絶対値、trueなら初期値に対する乗数）")]
         public Vector3 scaleMin = Vector3.one;
 
-        [Tooltip("最大値時のスケール")]
+        [Tooltip("最大値時のスケール（relative=falseなら絶対値、trueなら初期値に対する乗数）")]
         public Vector3 scaleMax = Vector3.one;
 
         [Header("オプション")]
@@ -75,6 +87,9 @@ namespace TSFE.Utility
         private Vector3 currentPosition;
         private Quaternion currentRotation;
         private Vector3 currentScale;
+        private Vector3 initialPosition;
+        private Quaternion initialRotation;
+        private Vector3 initialScale;
         private bool initialized = false;
 
         void Start()
@@ -82,9 +97,14 @@ namespace TSFE.Utility
             if (targetTransform == null)
                 targetTransform = transform;
 
-            currentPosition = targetTransform.localPosition;
-            currentRotation = targetTransform.localRotation;
-            currentScale = targetTransform.localScale;
+            // 初期値を保存
+            initialPosition = targetTransform.localPosition;
+            initialRotation = targetTransform.localRotation;
+            initialScale = targetTransform.localScale;
+
+            currentPosition = initialPosition;
+            currentRotation = initialRotation;
+            currentScale = initialScale;
             initialized = true;
         }
 
@@ -109,25 +129,35 @@ namespace TSFE.Utility
             float t = Mathf.InverseLerp(inputMin, inputMax, value);
             t = Mathf.Clamp01(t);
 
+            // 反転オプション
+            if (invertInput) t = 1.0f - t;
+
             if (useInterpolation)
             {
                 if (controlPosition)
                 {
-                    Vector3 targetPos = Vector3.Lerp(positionMin, positionMax, t);
+                    Vector3 targetPos = relativePosition
+                        ? initialPosition + Vector3.Lerp(positionMin, positionMax, t)
+                        : Vector3.Lerp(positionMin, positionMax, t);
                     currentPosition = Vector3.Lerp(currentPosition, targetPos, Time.deltaTime * interpolationSpeed);
                     targetTransform.localPosition = currentPosition;
                 }
 
                 if (controlRotation)
                 {
-                    Quaternion targetRot = Quaternion.Euler(Vector3.Lerp(rotationMin, rotationMax, t));
+                    Vector3 targetEuler = relativeRotation
+                        ? initialRotation.eulerAngles + Vector3.Lerp(rotationMin, rotationMax, t)
+                        : Vector3.Lerp(rotationMin, rotationMax, t);
+                    Quaternion targetRot = Quaternion.Euler(targetEuler);
                     currentRotation = Quaternion.Lerp(currentRotation, targetRot, Time.deltaTime * interpolationSpeed);
                     targetTransform.localRotation = currentRotation;
                 }
 
                 if (controlScale)
                 {
-                    Vector3 targetScale = Vector3.Lerp(scaleMin, scaleMax, t);
+                    Vector3 targetScale = relativeScale
+                        ? Vector3.Scale(initialScale, Vector3.Lerp(scaleMin, scaleMax, t))
+                        : Vector3.Lerp(scaleMin, scaleMax, t);
                     currentScale = Vector3.Lerp(currentScale, targetScale, Time.deltaTime * interpolationSpeed);
                     targetTransform.localScale = currentScale;
                 }
@@ -136,17 +166,24 @@ namespace TSFE.Utility
             {
                 if (controlPosition)
                 {
-                    targetTransform.localPosition = Vector3.Lerp(positionMin, positionMax, t);
+                    targetTransform.localPosition = relativePosition
+                        ? initialPosition + Vector3.Lerp(positionMin, positionMax, t)
+                        : Vector3.Lerp(positionMin, positionMax, t);
                 }
 
                 if (controlRotation)
                 {
-                    targetTransform.localEulerAngles = Vector3.Lerp(rotationMin, rotationMax, t);
+                    Vector3 targetEuler = relativeRotation
+                        ? initialRotation.eulerAngles + Vector3.Lerp(rotationMin, rotationMax, t)
+                        : Vector3.Lerp(rotationMin, rotationMax, t);
+                    targetTransform.localEulerAngles = targetEuler;
                 }
 
                 if (controlScale)
                 {
-                    targetTransform.localScale = Vector3.Lerp(scaleMin, scaleMax, t);
+                    targetTransform.localScale = relativeScale
+                        ? Vector3.Scale(initialScale, Vector3.Lerp(scaleMin, scaleMax, t))
+                        : Vector3.Lerp(scaleMin, scaleMax, t);
                 }
             }
         }
