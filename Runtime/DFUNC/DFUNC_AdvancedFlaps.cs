@@ -299,8 +299,14 @@ namespace TSFE.DFUNC
             var extraLift = WingBroken ? brokenLiftMultiplier - 1 : (liftMultiplier - 1) * normalizedPosition;
 
             var sav = SAVControl;
-            sav.SetProgramVariable("ExtraDrag", (float)sav.GetProgramVariable("ExtraDrag") + extraDrag - appliedExtraDrag);
-            sav.SetProgramVariable("ExtraLift", (float)sav.GetProgramVariable("ExtraLift") + extraLift - appliedExtraLift);
+            var currentDrag = (float)sav.GetProgramVariable("ExtraDrag");
+            var currentLift = (float)sav.GetProgramVariable("ExtraLift");
+
+            sav.SetProgramVariable("ExtraDrag", currentDrag + extraDrag - appliedExtraDrag);
+            sav.SetProgramVariable("ExtraLift", currentLift + extraLift - appliedExtraLift);
+
+            Debug.Log($"[TSFE] Flaps Parameters Applied - Angle: {angle:F1}° ({normalizedPosition:P0}), ExtraDrag: {extraDrag:F3} (total: {currentDrag + extraDrag - appliedExtraDrag:F3}), ExtraLift: {extraLift:F3} (total: {currentLift + extraLift - appliedExtraLift:F3}), Broken: {WingBroken}");
+
             appliedExtraDrag = extraDrag;
             appliedExtraLift = extraLift;
         }
