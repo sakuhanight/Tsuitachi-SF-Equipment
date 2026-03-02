@@ -44,7 +44,15 @@ namespace TSFE.DFUNC
 
         public void DFUNC_LeftDial() { }
         public void DFUNC_RightDial() { }
-        public void DFUNC_Selected() { selected = true; }
+        public void DFUNC_Selected()
+        {
+            selected = true;
+            // 非Ownerが選択した場合、Ownershipを取得
+            if (!Networking.IsOwner(gameObject))
+            {
+                Networking.SetOwner(Networking.LocalPlayer, gameObject);
+            }
+        }
         public void DFUNC_Deselected() { selected = false; }
 
         public void SFEXT_L_EntityStart()
@@ -80,7 +88,8 @@ namespace TSFE.DFUNC
 
         private void Update()
         {
-            if (!isPilot) return;
+            // isPilot（左席Owner）または selected（ダイヤル選択中）なら入力処理
+            if (!isPilot && !selected) return;
 
             if (Input.GetKeyDown(desktopControl)) Toggle();
 

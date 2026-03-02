@@ -58,6 +58,11 @@ namespace TSFE.DFUNC
         {
             isSelected = true;
             prevTriggered = false;
+            // 非Ownerが選択した場合、Ownershipを取得
+            if (!isOwner)
+            {
+                Networking.SetOwner(Networking.LocalPlayer, gameObject);
+            }
         }
         public void DFUNC_Deselected() { isSelected = false; }
 
@@ -139,7 +144,8 @@ namespace TSFE.DFUNC
 
         public override void PostLateUpdate()
         {
-            if (!isPilot) return;
+            // isPilot（左席Owner）または isSelected（ダイヤル選択中）なら入力処理
+            if (!isPilot && !isSelected) return;
 
             prevTriggered = triggered;
             triggered = isSelected && TSFEUtil.IsTriggerPressed(LeftDial) || debugControllerTransform;

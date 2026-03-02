@@ -1,5 +1,6 @@
 using UdonSharp;
 using UnityEngine;
+using VRC.SDKBase;
 using SaccFlightAndVehicles;
 using TSFE.Utility;
 
@@ -21,7 +22,18 @@ namespace TSFE.DFUNC
 
         public void DFUNC_LeftDial() { }
         public void DFUNC_RightDial() { }
-        public void DFUNC_Selected() { selected = true; }
+        public void DFUNC_Selected()
+        {
+            selected = true;
+            // エンジンのOwnershipを取得（エンジンが同期を管理）
+            foreach (var engine in engines)
+            {
+                if (engine && !Networking.IsOwner(engine.gameObject))
+                {
+                    Networking.SetOwner(Networking.LocalPlayer, engine.gameObject);
+                }
+            }
+        }
         public void DFUNC_Deselected() { selected = false; }
 
         public void SFEXT_L_EntityStart()
@@ -45,7 +57,8 @@ namespace TSFE.DFUNC
 
         private void Update()
         {
-            if (!isPilot) return;
+            // isPilot（左席Owner）または selected（ダイヤル選択中）なら入力処理
+            if (!isPilot && !selected) return;
 
             var trigger = Input.GetKey(keyboardControl)
                 || (selected && TSFEUtil.IsTriggerPressed(LeftDial));

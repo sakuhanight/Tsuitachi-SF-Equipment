@@ -86,7 +86,15 @@ namespace TSFE.DFUNC
         {
             trackingTarget = VRCPlayerApi.TrackingDataType.RightHand;
         }
-        public void DFUNC_Selected() { isSelected = true; }
+        public void DFUNC_Selected()
+        {
+            isSelected = true;
+            // 非Ownerが選択した場合、Ownershipを取得
+            if (!Networking.IsOwner(gameObject))
+            {
+                Networking.SetOwner(Networking.LocalPlayer, gameObject);
+            }
+        }
         public void DFUNC_Deselected() { isSelected = false; }
 
         public void SFEXT_L_EntityStart()
@@ -109,7 +117,8 @@ namespace TSFE.DFUNC
 
         private void Update()
         {
-            if (isPilot)
+            // isPilot（左席Owner）または isSelected（ダイヤル選択中）なら入力処理
+            if (isPilot || isSelected)
             {
                 TriggerState = isSelected && TSFEUtil.IsTriggerPressed(LeftDial);
                 if (Input.GetKeyDown(desktopKey)) TargetAngle = 1.0f;

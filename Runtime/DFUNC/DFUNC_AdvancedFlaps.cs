@@ -134,7 +134,15 @@ namespace TSFE.DFUNC
         public void SFEXT_G_Explode() { ResetStatus(); }
         public void SFEXT_G_RespawnButton() { ResetStatus(); }
 
-        public void DFUNC_Selected() { selected = true; }
+        public void DFUNC_Selected()
+        {
+            selected = true;
+            // 非Ownerが選択した場合、Ownershipを取得
+            if (!isOwner)
+            {
+                Networking.SetOwner(Networking.LocalPlayer, gameObject);
+            }
+        }
         public void DFUNC_Deselected() { selected = false; }
 
         private float prevAngle, prevTargetAngle;
@@ -177,7 +185,8 @@ namespace TSFE.DFUNC
 
         private void LateUpdate()
         {
-            if (isPilot) HandleInput();
+            // isPilot（左席Owner）または selected（ダイヤル選択中）なら入力処理
+            if (isPilot || selected) HandleInput();
         }
 
         private void ResetStatus()
