@@ -15,7 +15,13 @@ namespace TSFE.DFUNC
         public float dragMultiplier = 1.4f;
         public float liftMultiplier = 1.35f;
         public float response = 1f;
-        public GameObject powerSource;
+
+        [Header("Power/Hydraulic")]
+        [Tooltip("電力バス（TSFE_PowerBus）または油圧バス（TSFE_HydraulicBus）")]
+        public UdonSharpBehaviour powerSource;
+
+        [Tooltip("powerSourceがGameObjectの場合に使用（後方互換性）")]
+        public GameObject powerSourceLegacy;
 
         [Header("Inputs")]
         public float controllerSensitivity = 0.1f;
@@ -154,7 +160,7 @@ namespace TSFE.DFUNC
 
             if (isOwner) ApplyDamage(dt);
 
-            var actuatorMoving = !actuatorBroken && (!powerSource || powerSource.activeInHierarchy);
+            var actuatorMoving = !actuatorBroken && IsPowerAvailable();
             UpdateSounds(dt, actuatorMoving);
 
             if (actuatorMoving) angle = Mathf.MoveTowards(angle, targetAngle, response * dt);
@@ -328,6 +334,34 @@ namespace TSFE.DFUNC
         {
             targetAngle = detents[Mathf.Clamp(targetDetentIndex - 1, 0, detents.Length - 1)];
             UpdateDetents();
+        }
+
+        private bool IsPowerAvailable()
+        {
+            // TSFE_PowerBus または TSFE_HydraulicBus をチェック
+            if (powerSource != null)
+            {
+                var typeName = powerSource.GetType().Name;
+                if (typeName == "TSFE_PowerBus")
+                {
+                    object powered = powerSource.GetProgramVariable("Powered");
+                    return powered != null && powered is bool && (bool)powered;
+                }
+                else if (typeName == "TSFE_HydraulicBus")
+                {
+                    object pressurized = powerSource.GetProgramVariable("Pressurized");
+                    return pressurized != null && pressurized is bool && (bool)pressurized;
+                }
+            }
+
+            // 後方互換性: GameObject
+            if (powerSourceLegacy != null)
+            {
+                return powerSourceLegacy.activeInHierarchy;
+            }
+
+            // 電源設定なし = 常時動作
+            return true;
         }
     }
 }
