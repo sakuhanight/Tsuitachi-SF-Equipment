@@ -1,5 +1,6 @@
 using UdonSharp;
 using UnityEngine;
+using UnityEngine.UI;
 using VRC.SDKBase;
 
 namespace TSFE.SFEXT
@@ -7,6 +8,9 @@ namespace TSFE.SFEXT
     /// <summary>
     /// SFEXT_AdvancedEngine のテスト用スクリプト
     /// デスクトップ/VRで手動操作してエンジン動作を確認
+    ///
+    /// Inspector でエンジンの状態をリアルタイム確認できます
+    /// または debugText (UI Text) を設定して画面表示も可能
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
     public class SFEXT_AdvancedEngineTest : UdonSharpBehaviour
@@ -14,8 +18,8 @@ namespace TSFE.SFEXT
         [Header("テスト対象")]
         public SFEXT_AdvancedEngine engine;
 
-        [Header("デバッグ表示")]
-        public bool showDebugInfo = true;
+        [Header("UI表示 (任意)")]
+        public Text debugText;
 
         [Header("キーバインド (Desktop)")]
         public KeyCode starterKey = KeyCode.I;
@@ -24,7 +28,12 @@ namespace TSFE.SFEXT
         public KeyCode throttleUpKey = KeyCode.RightShift;
         public KeyCode throttleDownKey = KeyCode.RightControl;
 
-        private float throttleInput = 0f;
+        [Header("現在の状態 (読み取り専用)")]
+        public float throttleInput = 0f;
+        public bool starter = false;
+        public bool fuel = false;
+        public bool reversing = false;
+
         private bool isOwner;
 
         void Start()
@@ -41,18 +50,21 @@ namespace TSFE.SFEXT
             if (Input.GetKeyDown(starterKey))
             {
                 engine.starter = !engine.starter;
+                starter = engine.starter;
                 RequestSerialization();
             }
 
             if (Input.GetKeyDown(fuelKey))
             {
                 engine.fuel = !engine.fuel;
+                fuel = engine.fuel;
                 RequestSerialization();
             }
 
             if (Input.GetKeyDown(reverserKey))
             {
                 engine.reversing = !engine.reversing;
+                reversing = engine.reversing;
                 RequestSerialization();
             }
 
@@ -71,76 +83,33 @@ namespace TSFE.SFEXT
             {
                 engine.SAVControl.SetProgramVariable("ThrottleInput", throttleInput);
             }
+
+            // UI更新
+            UpdateDebugUI();
         }
 
-        void OnGUI()
+        private void UpdateDebugUI()
         {
-            if (!showDebugInfo || engine == null) return;
-
-            float y = 10;
-            float lineHeight = 20;
-            float width = 350;
-            float height = 340;
-
-            GUI.Box(new Rect(10, y, width, height), "");
-
-            y += 10;
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), "SFEXT_AdvancedEngine Test");
-            y += lineHeight;
-
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), "Starter: " + engine.starter + " [" + starterKey + "]");
-            y += lineHeight;
-
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), "Fuel: " + engine.fuel + " [" + fuelKey + "]");
-            y += lineHeight;
-
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), "Throttle: " + throttleInput.ToString("F2") + " [" + throttleUpKey + "/" + throttleDownKey + "]");
-            y += lineHeight;
-
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), "Reversing: " + engine.reversing + " [" + reverserKey + "]");
-            y += lineHeight;
-
-            y += lineHeight / 2;
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), "Engine State:");
-            y += lineHeight;
+            if (debugText == null || engine == null) return;
 
             float n1Pct = engine.N1 / engine.takeOffN1 * 100f;
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), "N1: " + engine.N1.ToString("F1") + " RPM (" + n1Pct.ToString("F1") + "%)");
-            y += lineHeight;
-
             float n2Pct = engine.N2 / engine.takeOffN2 * 100f;
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), "N2: " + engine.N2.ToString("F1") + " RPM (" + n2Pct.ToString("F1") + "%)");
-            y += lineHeight;
 
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), "EGT: " + engine.EGT.ToString("F0") + " C");
-            y += lineHeight;
+            string text = "SFEXT_AdvancedEngine Test\n\n";
+            text += "Controls:\n";
+            text += starterKey + ": Starter [" + (engine.starter ? "ON" : "OFF") + "]\n";
+            text += fuelKey + ": Fuel [" + (engine.fuel ? "ON" : "OFF") + "]\n";
+            text += throttleUpKey + "/" + throttleDownKey + ": Throttle [" + throttleInput.ToString("F2") + "]\n";
+            text += reverserKey + ": Reverser [" + (engine.reversing ? "ON" : "OFF") + "]\n\n";
+            text += "Engine State:\n";
+            text += "N1: " + engine.N1.ToString("F1") + " RPM (" + n1Pct.ToString("F1") + "%)\n";
+            text += "N2: " + engine.N2.ToString("F1") + " RPM (" + n2Pct.ToString("F1") + "%)\n";
+            text += "EGT: " + engine.EGT.ToString("F0") + " C\n";
+            text += "ECT: " + engine.ECT.ToString("F0") + " C\n";
+            text += "Fire: " + (engine.fire ? "YES" : "NO") + "\n";
+            text += "Engine On: " + (engine.EngineOn ? "YES" : "NO");
 
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), "ECT: " + engine.ECT.ToString("F0") + " C");
-            y += lineHeight;
-
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), "Fire: " + engine.fire);
-            y += lineHeight;
-
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), "Engine On: " + engine.EngineOn);
-            y += lineHeight;
-
-            y += lineHeight / 2;
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), "Controls:");
-            y += lineHeight;
-
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), starterKey + ": Toggle Starter");
-            y += lineHeight;
-
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), fuelKey + ": Toggle Fuel");
-            y += lineHeight;
-
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), throttleUpKey + ": Increase Throttle");
-            y += lineHeight;
-
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), throttleDownKey + ": Decrease Throttle");
-            y += lineHeight;
-
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), reverserKey + ": Toggle Reverser");
+            debugText.text = text;
         }
     }
 }
