@@ -345,12 +345,16 @@ namespace TSFE.DFUNC
                 if (typeName == "TSFE_PowerBus")
                 {
                     object powered = powerSource.GetProgramVariable("Powered");
-                    return powered != null && powered is bool && (bool)powered;
+                    if (powered == null) return false;
+                    if (!(powered is bool)) return false;
+                    return (bool)powered;
                 }
                 else if (typeName == "TSFE_HydraulicBus")
                 {
                     object pressurized = powerSource.GetProgramVariable("Pressurized");
-                    return pressurized != null && pressurized is bool && (bool)pressurized;
+                    if (pressurized == null) return false;
+                    if (!(pressurized is bool)) return false;
+                    return (bool)pressurized;
                 }
             }
 
