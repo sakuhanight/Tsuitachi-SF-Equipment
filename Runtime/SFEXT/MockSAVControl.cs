@@ -18,32 +18,27 @@ namespace TSFE.SFEXT
         public Transform ControlsRoot;
 
         [Header("Debug")]
-        public bool showThrottleStrength = true;
+        public bool showDebug = true;
 
         void OnGUI()
         {
-            if (!showThrottleStrength) return;
-
-            GUIStyle style = new GUIStyle(GUI.skin.box);
-            style.alignment = TextAnchor.UpperLeft;
-            style.fontSize = 14;
-            style.normal.textColor = Color.cyan;
+            if (!showDebug) return;
 
             float y = 360;
             float lineHeight = 20;
             float width = 350;
-            float height = 60;
+            float height = 80;
 
-            GUI.Box(new Rect(10, y, width, height), "", style);
+            GUI.Box(new Rect(10, y, width, height), "");
             y += 10;
 
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), "<b>Mock SAVControl</b>", style);
+            GUI.Label(new Rect(20, y, width - 20, lineHeight), "Mock SAVControl");
             y += lineHeight;
 
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), $"ThrottleStrength: {ThrottleStrength:F2} N", style);
+            GUI.Label(new Rect(20, y, width - 20, lineHeight), "ThrottleStrength: " + ThrottleStrength.ToString("F2") + " N");
             y += lineHeight;
 
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), $"AirSpeed: {AirSpeed:F1} m/s", style);
+            GUI.Label(new Rect(20, y, width - 20, lineHeight), "AirSpeed: " + AirSpeed.ToString("F1") + " m/s");
         }
     }
 }

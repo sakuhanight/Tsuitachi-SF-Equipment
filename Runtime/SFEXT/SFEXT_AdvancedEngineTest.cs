@@ -16,7 +16,6 @@ namespace TSFE.SFEXT
 
         [Header("デバッグ表示")]
         public bool showDebugInfo = true;
-        public float debugUIScale = 1.0f;
 
         [Header("キーバインド (Desktop)")]
         public KeyCode starterKey = KeyCode.I;
@@ -27,7 +26,6 @@ namespace TSFE.SFEXT
 
         private float throttleInput = 0f;
         private bool isOwner;
-        private GUIStyle debugStyle;
 
         void Start()
         {
@@ -79,76 +77,70 @@ namespace TSFE.SFEXT
         {
             if (!showDebugInfo || engine == null) return;
 
-            if (debugStyle == null)
-            {
-                debugStyle = new GUIStyle(GUI.skin.box);
-                debugStyle.alignment = TextAnchor.UpperLeft;
-                debugStyle.fontSize = Mathf.RoundToInt(14 * debugUIScale);
-                debugStyle.normal.textColor = Color.white;
-            }
-
             float y = 10;
-            float lineHeight = 20 * debugUIScale;
-            float width = 350 * debugUIScale;
-            float height = 340 * debugUIScale;
+            float lineHeight = 20;
+            float width = 350;
+            float height = 340;
 
-            GUI.Box(new Rect(10, y, width, height), "", debugStyle);
+            GUI.Box(new Rect(10, y, width, height), "");
 
             y += 10;
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), $"<b>SFEXT_AdvancedEngine Test</b>", debugStyle);
+            GUI.Label(new Rect(20, y, width - 20, lineHeight), "SFEXT_AdvancedEngine Test");
             y += lineHeight;
 
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), $"Starter: {engine.starter} [{starterKey}]", debugStyle);
+            GUI.Label(new Rect(20, y, width - 20, lineHeight), "Starter: " + engine.starter + " [" + starterKey + "]");
             y += lineHeight;
 
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), $"Fuel: {engine.fuel} [{fuelKey}]", debugStyle);
+            GUI.Label(new Rect(20, y, width - 20, lineHeight), "Fuel: " + engine.fuel + " [" + fuelKey + "]");
             y += lineHeight;
 
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), $"Throttle: {throttleInput:F2} [{throttleUpKey}/{throttleDownKey}]", debugStyle);
+            GUI.Label(new Rect(20, y, width - 20, lineHeight), "Throttle: " + throttleInput.ToString("F2") + " [" + throttleUpKey + "/" + throttleDownKey + "]");
             y += lineHeight;
 
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), $"Reversing: {engine.reversing} [{reverserKey}]", debugStyle);
-            y += lineHeight;
-
-            y += lineHeight / 2;
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), $"<b>Engine State:</b>", debugStyle);
-            y += lineHeight;
-
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), $"N1: {engine.N1:F1} RPM ({engine.N1 / engine.takeOffN1 * 100:F1}%)", debugStyle);
-            y += lineHeight;
-
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), $"N2: {engine.N2:F1} RPM ({engine.N2 / engine.takeOffN2 * 100:F1}%)", debugStyle);
-            y += lineHeight;
-
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), $"EGT: {engine.EGT:F0} °C", debugStyle);
-            y += lineHeight;
-
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), $"ECT: {engine.ECT:F0} °C", debugStyle);
-            y += lineHeight;
-
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), $"Fire: {engine.fire}", debugStyle);
-            y += lineHeight;
-
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), $"Engine On: {engine.EngineOn}", debugStyle);
+            GUI.Label(new Rect(20, y, width - 20, lineHeight), "Reversing: " + engine.reversing + " [" + reverserKey + "]");
             y += lineHeight;
 
             y += lineHeight / 2;
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), $"<b>Controls:</b>", debugStyle);
+            GUI.Label(new Rect(20, y, width - 20, lineHeight), "Engine State:");
             y += lineHeight;
 
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), $"{starterKey}: Toggle Starter", debugStyle);
+            float n1Pct = engine.N1 / engine.takeOffN1 * 100f;
+            GUI.Label(new Rect(20, y, width - 20, lineHeight), "N1: " + engine.N1.ToString("F1") + " RPM (" + n1Pct.ToString("F1") + "%)");
             y += lineHeight;
 
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), $"{fuelKey}: Toggle Fuel", debugStyle);
+            float n2Pct = engine.N2 / engine.takeOffN2 * 100f;
+            GUI.Label(new Rect(20, y, width - 20, lineHeight), "N2: " + engine.N2.ToString("F1") + " RPM (" + n2Pct.ToString("F1") + "%)");
             y += lineHeight;
 
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), $"{throttleUpKey}: Increase Throttle", debugStyle);
+            GUI.Label(new Rect(20, y, width - 20, lineHeight), "EGT: " + engine.EGT.ToString("F0") + " C");
             y += lineHeight;
 
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), $"{throttleDownKey}: Decrease Throttle", debugStyle);
+            GUI.Label(new Rect(20, y, width - 20, lineHeight), "ECT: " + engine.ECT.ToString("F0") + " C");
             y += lineHeight;
 
-            GUI.Label(new Rect(20, y, width - 20, lineHeight), $"{reverserKey}: Toggle Reverser", debugStyle);
+            GUI.Label(new Rect(20, y, width - 20, lineHeight), "Fire: " + engine.fire);
+            y += lineHeight;
+
+            GUI.Label(new Rect(20, y, width - 20, lineHeight), "Engine On: " + engine.EngineOn);
+            y += lineHeight;
+
+            y += lineHeight / 2;
+            GUI.Label(new Rect(20, y, width - 20, lineHeight), "Controls:");
+            y += lineHeight;
+
+            GUI.Label(new Rect(20, y, width - 20, lineHeight), starterKey + ": Toggle Starter");
+            y += lineHeight;
+
+            GUI.Label(new Rect(20, y, width - 20, lineHeight), fuelKey + ": Toggle Fuel");
+            y += lineHeight;
+
+            GUI.Label(new Rect(20, y, width - 20, lineHeight), throttleUpKey + ": Increase Throttle");
+            y += lineHeight;
+
+            GUI.Label(new Rect(20, y, width - 20, lineHeight), throttleDownKey + ": Decrease Throttle");
+            y += lineHeight;
+
+            GUI.Label(new Rect(20, y, width - 20, lineHeight), reverserKey + ": Toggle Reverser");
         }
     }
 }
