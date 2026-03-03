@@ -63,6 +63,19 @@ namespace TSFE.Utility
         [Tooltip("値が無効な場合の表示")]
         public string invalidValueText = "----";
 
+        [Header("条件付きプレフィックス")]
+        [Tooltip("条件パラメータ名（空欄で無効）")]
+        public string conditionParameterName = "";
+
+        [Tooltip("条件パラメータの配列インデックス（-1で無効）")]
+        public int conditionArrayIndex = -1;
+
+        [Tooltip("条件がtrueの時のプレフィックス（例: \"* \"）")]
+        public string conditionTruePrefix = "";
+
+        [Tooltip("条件がfalseの時のプレフィックス")]
+        public string conditionFalsePrefix = "";
+
         private float lastUpdateTime = 0f;
 
         void Update()
@@ -84,6 +97,14 @@ namespace TSFE.Utility
 
             object value = GetParameterValue();
             string formattedValue = FormatValue(value);
+
+            // 条件付きプレフィックスを追加
+            if (!string.IsNullOrEmpty(conditionParameterName))
+            {
+                bool condition = GetCondition();
+                string prefix = condition ? conditionTruePrefix : conditionFalsePrefix;
+                formattedValue = prefix + formattedValue;
+            }
 
             if (displayText != null)
                 displayText.text = formattedValue;
@@ -219,6 +240,59 @@ namespace TSFE.Utility
 
             // その他
             return value.ToString();
+        }
+
+        private bool GetCondition()
+        {
+            if (targetComponent == null)
+                return false;
+
+            object value = targetComponent.GetProgramVariable(conditionParameterName);
+
+            // 配列の場合
+            if (conditionArrayIndex >= 0)
+            {
+                if (value == null)
+                    return false;
+
+                string typeName = value.GetType().Name;
+
+                if (typeName == "Boolean[]")
+                {
+                    bool[] arr = (bool[])value;
+                    if (conditionArrayIndex < arr.Length)
+                        return arr[conditionArrayIndex];
+                }
+                else if (typeName == "Single[]")
+                {
+                    float[] arr = (float[])value;
+                    if (conditionArrayIndex < arr.Length)
+                        return !Mathf.Approximately(arr[conditionArrayIndex], 0f);
+                }
+                else if (typeName == "Int32[]")
+                {
+                    int[] arr = (int[])value;
+                    if (conditionArrayIndex < arr.Length)
+                        return arr[conditionArrayIndex] != 0;
+                }
+
+                return false;
+            }
+
+            // 単一値の場合
+            if (value == null)
+                return false;
+
+            string valueTypeName = value.GetType().Name;
+
+            if (valueTypeName == "Boolean")
+                return (bool)value;
+            else if (valueTypeName == "Single")
+                return !Mathf.Approximately((float)value, 0f);
+            else if (valueTypeName == "Int32")
+                return (int)value != 0;
+
+            return false;
         }
     }
 }
