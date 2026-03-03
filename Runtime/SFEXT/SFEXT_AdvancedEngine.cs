@@ -18,17 +18,23 @@ namespace TSFE.SFEXT
         public float idleN1 = 879.6f;
         public float referenceN1 = 4397f;
         public float takeOffN1 = 4586f;
-        public float n1Response = 0.1f;
-        public float n1DecreaseResponse = 0.08f;
+        [Tooltip("N1上昇応答速度 (Idle→TakeOff: 約5秒)")]
+        public float n1Response = 0.2f;
+        [Tooltip("N1減少応答速度 (TakeOff→Idle: 約8秒)")]
+        public float n1DecreaseResponse = 0.125f;
+        [Tooltip("N1始動時応答速度 (未使用)")]
         public float n1StartupResponse = 0.01f;
 
         [Header("N2 (高圧) RPM")]
         public float idleN2 = 8583.5f;
         public float referenceN2 = 17167f;
         public float takeOffN2 = 20171f;
+        [Tooltip("N2応答速度 (Fuel ON→Idle: 約20秒)")]
         public float n2Response = 0.05f;
+        [Tooltip("N2減少応答速度")]
         public float n2DecreaseResponse = 0.04f;
-        public float n2StartupResponse = 0.005f;
+        [Tooltip("N2始動応答速度 (Starter→30%: 約10秒)")]
+        public float n2StartupResponse = 0.1f;
 
         [Header("温度 (°C)")]
         public float idleEGT = 725f;
@@ -76,9 +82,7 @@ namespace TSFE.SFEXT
         public float exhaustHazardRadius = 3f;
         public float exhaustHazardDistance = 10f;
 
-        [Header("SaccEntity (自動設定)")]
-        [Tooltip("SaccEntityから自動注入されます。テスト時は不要")]
-        public SaccEntity EntityControl;
+        [System.NonSerialized] public SaccEntity EntityControl;
 
         [UdonSynced(UdonSyncMode.None)] public bool reversing = false;
         [UdonSynced(UdonSyncMode.None)] public bool starter = false;
