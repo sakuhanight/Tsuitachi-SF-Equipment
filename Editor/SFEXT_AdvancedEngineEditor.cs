@@ -12,11 +12,15 @@ namespace TSFE.Editor
         private bool showSettings = false;
         private bool showResponseCalculator = false;
 
-        // Response calculator values
-        private float starterToN2Time = 10f;
-        private float fuelToIdleTime = 20f;
-        private float n1ResponseTime = 5f;
-        private float n1DecreaseTime = 8f;
+        // 前回の値を記憶（変更検知用）
+        private float previousStarterTime = -1f;
+        private float previousFuelTime = -1f;
+        private float previousN1Time = -1f;
+        private float previousN1DecTime = -1f;
+        private float previousN2StartupResponse = -1f;
+        private float previousN2Response = -1f;
+        private float previousN1Response = -1f;
+        private float previousN1DecreaseResponse = -1f;
 
         public override void OnInspectorGUI()
         {
@@ -120,91 +124,108 @@ namespace TSFE.Editor
 
             EditorGUILayout.Space();
 
-            // Response Time Calculator
-            showResponseCalculator = EditorGUILayout.Foldout(showResponseCalculator, "Response Time Calculator", true, EditorStyles.foldoutHeader);
+            // Response Time Calculator (自動計算・即時反映)
+            showResponseCalculator = EditorGUILayout.Foldout(showResponseCalculator, "Response Time Calculator (自動計算)", true, EditorStyles.foldoutHeader);
             if (showResponseCalculator)
             {
                 EditorGUILayout.BeginVertical("box");
-                EditorGUILayout.HelpBox("目標時間を入力すると、自動的にResponseパラメータを計算します", MessageType.Info);
+                EditorGUILayout.HelpBox("時間とResponseパラメータを相互に自動計算・即時反映します", MessageType.Info);
 
-                EditorGUILayout.Space();
-
-                EditorGUILayout.LabelField("N2 Startup Response", EditorStyles.boldLabel);
-                starterToN2Time = EditorGUILayout.FloatField("Starter → N2 30% 到達時間 (秒)", starterToN2Time);
-                if (starterToN2Time > 0f)
+                // 初期化
+                if (previousStarterTime < 0f)
                 {
-                    float calculatedN2Startup = CalculateResponseRate(0f, engine.idleN2 * 0.3f, starterToN2Time);
-                    EditorGUILayout.LabelField("計算値", $"n2StartupResponse = {calculatedN2Startup:F4}");
-                    if (GUILayout.Button("n2StartupResponse に適用", GUILayout.Height(25)))
-                    {
-                        Undo.RecordObject(engine, "Set n2StartupResponse");
-                        engine.n2StartupResponse = calculatedN2Startup;
-                        EditorUtility.SetDirty(engine);
-                    }
+                    previousStarterTime = CalculateTimeFromResponse(0f, engine.idleN2 * 0.3f, engine.n2StartupResponse);
+                    previousFuelTime = CalculateTimeFromResponse(engine.idleN2 * 0.3f, engine.idleN2, engine.n2Response);
+                    previousN1Time = CalculateTimeFromResponse(engine.idleN1, engine.takeOffN1, engine.n1Response);
+                    previousN1DecTime = CalculateTimeFromResponse(engine.takeOffN1, engine.idleN1, engine.n1DecreaseResponse);
+                    previousN2StartupResponse = engine.n2StartupResponse;
+                    previousN2Response = engine.n2Response;
+                    previousN1Response = engine.n1Response;
+                    previousN1DecreaseResponse = engine.n1DecreaseResponse;
                 }
 
                 EditorGUILayout.Space();
 
-                EditorGUILayout.LabelField("N2 Response (Fuel ON)", EditorStyles.boldLabel);
-                fuelToIdleTime = EditorGUILayout.FloatField("Fuel ON → Idle 到達時間 (秒)", fuelToIdleTime);
-                if (fuelToIdleTime > 0f)
+                // N2 Startup
+                EditorGUILayout.LabelField("N2 Startup (Starter → 30%)", EditorStyles.boldLabel);
+                float starterTime = EditorGUILayout.FloatField("時間 (秒)", previousStarterTime);
+                EditorGUILayout.LabelField("Response", $"{engine.n2StartupResponse:F4}");
+
+                if (Mathf.Abs(starterTime - previousStarterTime) > 0.001f && starterTime > 0f)
                 {
-                    float calculatedN2Response = CalculateResponseRate(engine.idleN2 * 0.3f, engine.idleN2, fuelToIdleTime);
-                    EditorGUILayout.LabelField("計算値", $"n2Response = {calculatedN2Response:F4}");
-                    if (GUILayout.Button("n2Response に適用", GUILayout.Height(25)))
-                    {
-                        Undo.RecordObject(engine, "Set n2Response");
-                        engine.n2Response = calculatedN2Response;
-                        EditorUtility.SetDirty(engine);
-                    }
-                }
-
-                EditorGUILayout.Space();
-
-                EditorGUILayout.LabelField("N1 Response", EditorStyles.boldLabel);
-                n1ResponseTime = EditorGUILayout.FloatField("N1 上昇時間 (Idle → Take Off, 秒)", n1ResponseTime);
-                if (n1ResponseTime > 0f)
-                {
-                    float calculatedN1Response = CalculateResponseRate(engine.idleN1, engine.takeOffN1, n1ResponseTime);
-                    EditorGUILayout.LabelField("計算値", $"n1Response = {calculatedN1Response:F4}");
-                    if (GUILayout.Button("n1Response に適用", GUILayout.Height(25)))
-                    {
-                        Undo.RecordObject(engine, "Set n1Response");
-                        engine.n1Response = calculatedN1Response;
-                        EditorUtility.SetDirty(engine);
-                    }
-                }
-
-                EditorGUILayout.Space();
-
-                n1DecreaseTime = EditorGUILayout.FloatField("N1 減少時間 (Take Off → Idle, 秒)", n1DecreaseTime);
-                if (n1DecreaseTime > 0f)
-                {
-                    float calculatedN1Decrease = CalculateResponseRate(engine.takeOffN1, engine.idleN1, n1DecreaseTime);
-                    EditorGUILayout.LabelField("計算値", $"n1DecreaseResponse = {calculatedN1Decrease:F4}");
-                    if (GUILayout.Button("n1DecreaseResponse に適用", GUILayout.Height(25)))
-                    {
-                        Undo.RecordObject(engine, "Set n1DecreaseResponse");
-                        engine.n1DecreaseResponse = calculatedN1Decrease;
-                        EditorUtility.SetDirty(engine);
-                    }
-                }
-
-                EditorGUILayout.Space();
-
-                if (GUILayout.Button("リアル CFM56 プリセット適用", GUILayout.Height(30)))
-                {
-                    Undo.RecordObject(engine, "Apply CFM56 Preset");
-                    engine.n2StartupResponse = CalculateResponseRate(0f, engine.idleN2 * 0.3f, 10f);
-                    engine.n2Response = CalculateResponseRate(engine.idleN2 * 0.3f, engine.idleN2, 20f);
-                    engine.n1Response = CalculateResponseRate(engine.idleN1, engine.takeOffN1, 5f);
-                    engine.n1DecreaseResponse = CalculateResponseRate(engine.takeOffN1, engine.idleN1, 8f);
-                    starterToN2Time = 10f;
-                    fuelToIdleTime = 20f;
-                    n1ResponseTime = 5f;
-                    n1DecreaseTime = 8f;
+                    Undo.RecordObject(engine, "Update n2StartupResponse from Time");
+                    engine.n2StartupResponse = CalculateResponseRate(0f, engine.idleN2 * 0.3f, starterTime);
+                    previousN2StartupResponse = engine.n2StartupResponse;
+                    previousStarterTime = starterTime;
                     EditorUtility.SetDirty(engine);
-                    Debug.Log("CFM56 リアルプリセット適用: Starter 10秒, Fuel→Idle 20秒, N1上昇 5秒, N1減少 8秒");
+                }
+                else if (Mathf.Abs(engine.n2StartupResponse - previousN2StartupResponse) > 0.0001f)
+                {
+                    previousStarterTime = CalculateTimeFromResponse(0f, engine.idleN2 * 0.3f, engine.n2StartupResponse);
+                    previousN2StartupResponse = engine.n2StartupResponse;
+                }
+
+                EditorGUILayout.Space();
+
+                // N2 Response
+                EditorGUILayout.LabelField("N2 Response (Fuel ON → Idle)", EditorStyles.boldLabel);
+                float fuelTime = EditorGUILayout.FloatField("時間 (秒)", previousFuelTime);
+                EditorGUILayout.LabelField("Response", $"{engine.n2Response:F4}");
+
+                if (Mathf.Abs(fuelTime - previousFuelTime) > 0.001f && fuelTime > 0f)
+                {
+                    Undo.RecordObject(engine, "Update n2Response from Time");
+                    engine.n2Response = CalculateResponseRate(engine.idleN2 * 0.3f, engine.idleN2, fuelTime);
+                    previousN2Response = engine.n2Response;
+                    previousFuelTime = fuelTime;
+                    EditorUtility.SetDirty(engine);
+                }
+                else if (Mathf.Abs(engine.n2Response - previousN2Response) > 0.0001f)
+                {
+                    previousFuelTime = CalculateTimeFromResponse(engine.idleN2 * 0.3f, engine.idleN2, engine.n2Response);
+                    previousN2Response = engine.n2Response;
+                }
+
+                EditorGUILayout.Space();
+
+                // N1 Response
+                EditorGUILayout.LabelField("N1 Response (Idle → Take Off)", EditorStyles.boldLabel);
+                float n1Time = EditorGUILayout.FloatField("時間 (秒)", previousN1Time);
+                EditorGUILayout.LabelField("Response", $"{engine.n1Response:F4}");
+
+                if (Mathf.Abs(n1Time - previousN1Time) > 0.001f && n1Time > 0f)
+                {
+                    Undo.RecordObject(engine, "Update n1Response from Time");
+                    engine.n1Response = CalculateResponseRate(engine.idleN1, engine.takeOffN1, n1Time);
+                    previousN1Response = engine.n1Response;
+                    previousN1Time = n1Time;
+                    EditorUtility.SetDirty(engine);
+                }
+                else if (Mathf.Abs(engine.n1Response - previousN1Response) > 0.0001f)
+                {
+                    previousN1Time = CalculateTimeFromResponse(engine.idleN1, engine.takeOffN1, engine.n1Response);
+                    previousN1Response = engine.n1Response;
+                }
+
+                EditorGUILayout.Space();
+
+                // N1 Decrease
+                EditorGUILayout.LabelField("N1 Decrease (Take Off → Idle)", EditorStyles.boldLabel);
+                float n1DecTime = EditorGUILayout.FloatField("時間 (秒)", previousN1DecTime);
+                EditorGUILayout.LabelField("Response", $"{engine.n1DecreaseResponse:F4}");
+
+                if (Mathf.Abs(n1DecTime - previousN1DecTime) > 0.001f && n1DecTime > 0f)
+                {
+                    Undo.RecordObject(engine, "Update n1DecreaseResponse from Time");
+                    engine.n1DecreaseResponse = CalculateResponseRate(engine.takeOffN1, engine.idleN1, n1DecTime);
+                    previousN1DecreaseResponse = engine.n1DecreaseResponse;
+                    previousN1DecTime = n1DecTime;
+                    EditorUtility.SetDirty(engine);
+                }
+                else if (Mathf.Abs(engine.n1DecreaseResponse - previousN1DecreaseResponse) > 0.0001f)
+                {
+                    previousN1DecTime = CalculateTimeFromResponse(engine.takeOffN1, engine.idleN1, engine.n1DecreaseResponse);
+                    previousN1DecreaseResponse = engine.n1DecreaseResponse;
                 }
 
                 EditorGUILayout.EndVertical();
@@ -221,20 +242,22 @@ namespace TSFE.Editor
 
         /// <summary>
         /// 目標時間からresponse rateを計算
-        /// Formula: response = 1 / (time * difference)
-        ///
         /// MoveTowards(current, target, response * Abs(target - current) * dt) の場合:
-        /// time = 1 / response (おおよそ)
+        /// response = 1 / timeSeconds で近似
         /// </summary>
         private float CalculateResponseRate(float from, float to, float timeSeconds)
         {
             if (timeSeconds <= 0f) return 0f;
-            float difference = Mathf.Abs(to - from);
-            if (difference <= 0f) return 0f;
-
-            // 経験的に、約 63% (1 - 1/e) 到達時間がtimeSecondsになるように調整
-            // response = 1 / timeSeconds で近似
             return 1f / timeSeconds;
+        }
+
+        /// <summary>
+        /// response rateから目標時間を逆算
+        /// </summary>
+        private float CalculateTimeFromResponse(float from, float to, float response)
+        {
+            if (response <= 0f) return 0f;
+            return 1f / response;
         }
     }
 }
