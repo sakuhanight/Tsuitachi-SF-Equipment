@@ -167,7 +167,7 @@ namespace TSFE.SFEXT
             {
                 float target = fuel ? idleN2 : idleN2 * 0.3f;
                 float resp = fuel ? n2StartupResponse : n2StartupResponse * 0.5f;
-                N2 = Mathf.MoveTowards(N2, target, resp * (idleN2 - N2) * dt);
+                N2 = Mathf.MoveTowards(N2, target, resp * Mathf.Abs(target - N2) * dt);
             }
             else if (engineOn && !meltdown)
             {
