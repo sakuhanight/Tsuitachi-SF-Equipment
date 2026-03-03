@@ -1,6 +1,6 @@
 # エンジンテストベンチ セットアップガイド
 
-各種エンジンの検証用テストベンチ構成です。実機搭載時とは独立した構成で、様々なエンジンをテスト可能です。
+各種エンジンの検証用テストベンチ構成です。1基ずつテストし、調整後に実機に搭載します。
 
 ## 推奨構成
 
@@ -10,14 +10,14 @@ EngineTestBench (親GameObject)
 │   └── MockSAVControl component
 ├── TestController (テストコントローラー)
 │   └── SFEXT_AdvancedEngineTest component
-└── Engines (エンジンコンテナ)
-    ├── Engine_CFM56_Left (テスト対象エンジン 1)
-    │   └── SFEXT_AdvancedEngine component
-    ├── Engine_CFM56_Right (テスト対象エンジン 2)
-    │   └── SFEXT_AdvancedEngine component
-    └── Engine_GE90 (別のエンジンタイプ)
-        └── SFEXT_AdvancedEngine component
+└── Engine_Test (テスト対象エンジン 1基)
+    └── SFEXT_AdvancedEngine component
 ```
+
+**ワークフロー**:
+1. `Engine_Test` で1基のエンジンをテスト・調整
+2. パラメータが確定したらプリセット化
+3. 実機に必要な数だけ複製して搭載
 
 ## 詳細セットアップ
 
@@ -46,14 +46,9 @@ EngineTestBench (親GameObject)
    - Debug Text: なし (任意、UI Text使用時のみ)
    - キーバインド: デフォルトでOK
 
-### 4. Engines コンテナ作成
+### 4. エンジン作成 (例: CFM56)
 
-1. `EngineTestBench` の子として空の GameObject 作成: `Engines`
-2. このフォルダ内にテスト対象エンジンを配置
-
-### 5. エンジン作成 (例: CFM56)
-
-1. `Engines` の子として空の GameObject 作成: `Engine_CFM56_Left`
+1. `EngineTestBench` の子として空の GameObject 作成: `Engine_Test`
 2. `SFEXT_AdvancedEngine` コンポーネント追加
 3. 設定:
    - **SAV Control**: `MockSAVControl`
@@ -69,22 +64,9 @@ EngineTestBench (親GameObject)
      - エフェクト: なし (任意)
 
 4. TestController の設定に戻る:
-   - **Engine**: `Engine_CFM56_Left`
+   - **Engine**: `Engine_Test`
 
-### 6. 複数エンジンテスト（任意）
-
-異なるエンジンをテストする場合:
-
-1. `Engines` 内に新しいエンジン作成: `Engine_GE90`
-2. SFEXT_AdvancedEngine を追加
-3. パラメータを GE90 用に調整:
-   - maxThrust: 510000 (GE90-115Bの場合)
-   - idleN1/N2: GE90のデータ
-   - 等
-
-4. テスト時は `TestController` の `Engine` フィールドを切り替え
-
-### 7. UI デバッグ表示（任意）
+### 5. UI デバッグ表示（任意）
 
 1. Hierarchy 右クリック → UI → Canvas
 2. Canvas 右クリック → UI → Text (Legacy)
@@ -100,19 +82,23 @@ EngineTestBench (親GameObject)
 ### 基本テスト
 
 1. Play Mode 開始
-2. `TestController` を選択
+2. `Engine_Test` または `TestController` を選択
 3. Inspector で操作:
    - **Starter ON** → N2 が 30% まで上昇 (約10秒)
    - **Fuel ON** → N2 が 50% (Idle) まで上昇 (約20秒)
    - **Throttle スライダー** → N1 が上昇、推力発生
    - **Reverser ON** → 推力が負に反転
+4. パラメータ調整:
+   - Response Time Calculator で時間調整
+   - Settings で詳細パラメータ調整
 
-### エンジン切り替えテスト
+### 別エンジンのテスト
 
 1. Play Mode 停止
-2. `TestController` の `Engine` を別のエンジンに変更
-3. Play Mode 再開
-4. 同じ手順でテスト
+2. `Engine_Test` のパラメータを変更:
+   - 例: GE90 用に maxThrust, N1/N2 値を変更
+3. Play Mode 再開してテスト
+4. 確定したら Prefab 化して保存
 
 ## プリセット例
 
@@ -155,25 +141,38 @@ Idle EGT: 700°C
 Take Off EGT: 1000°C
 ```
 
-## 実機搭載時の構成
+## 実機搭載ワークフロー
 
-実際の機体にエンジンを搭載する場合:
+### 1. テストベンチで調整
+
+1. `Engine_Test` でパラメータを調整
+2. 動作確認完了
+3. GameObject を右クリック → Create Empty Prefab
+4. `Prefabs/Engines/Engine_CFM56.prefab` として保存
+
+### 2. 実機への搭載
 
 ```
 Aircraft (SaccEntity付き)
 └── VehicleModel
     └── Engines
-        ├── LeftEngine
+        ├── LeftEngine (Engine_CFM56.prefab から作成)
         │   └── SFEXT_AdvancedEngine
-        └── RightEngine
+        └── RightEngine (Engine_CFM56.prefab から作成)
             └── SFEXT_AdvancedEngine
 ```
 
-設定:
-- **SAV Control**: Aircraft の `SaccAirVehicle`
-- **Entity Control**: 空欄 (SaccEntity が自動注入)
+### 3. 実機用設定変更
+
+各エンジンの設定を変更:
+- **SAV Control**: `MockSAVControl` → Aircraft の `SaccAirVehicle`
+- **Entity Control**: 空欄のまま (SaccEntity が自動注入)
 - **Vehicle Animator**: Aircraft の Animator
 - **サウンド/エフェクト**: 実機用アセット
+
+### 4. テストベンチの削除
+
+VRChat アップロード前に `EngineTestBench` GameObject を削除または非アクティブ化
 
 ## トラブルシューティング
 
@@ -184,13 +183,8 @@ Aircraft (SaccEntity付き)
 
 ### ThrottleStrength が更新されない
 
-- MockSAVControl の SAVControl 参照が正しいか確認
+- Engine_Test の SAV Control が MockSAVControl を参照しているか確認
 - Inspector で MockSAVControl.ThrottleStrength を確認
-
-### 複数エンジンで推力が重複
-
-- 各エンジンが異なる MockSAVControl を参照していないか確認
-- 同じ MockSAVControl を共有すること
 
 ## 次のステップ
 
