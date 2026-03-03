@@ -10,13 +10,13 @@ EngineTestBench (親GameObject)
 │   └── MockSAVControl component
 ├── TestController (テストコントローラー)
 │   └── SFEXT_AdvancedEngineTest component
-└── Engine_Test (テスト対象エンジン 1基)
+└── SFEXT_AdvancedEngine_CFM56-7B27 (テスト対象エンジン 1基)
     └── SFEXT_AdvancedEngine component
 ```
 
 **ワークフロー**:
 1. `Engine_Test` で1基のエンジンをテスト・調整
-2. パラメータが確定したらプリセット化
+2. パラメータが確定したらPrefab化
 3. 実機に必要な数だけ複製して搭載
 
 ## 詳細セットアップ
