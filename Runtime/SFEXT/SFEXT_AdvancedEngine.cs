@@ -76,7 +76,9 @@ namespace TSFE.SFEXT
         public float exhaustHazardRadius = 3f;
         public float exhaustHazardDistance = 10f;
 
-        [System.NonSerialized] public SaccEntity EntityControl;
+        [Header("SaccEntity (自動設定)")]
+        [Tooltip("SaccEntityから自動注入されます。テスト時は不要")]
+        public SaccEntity EntityControl;
 
         [UdonSynced(UdonSyncMode.None)] public bool reversing = false;
         [UdonSynced(UdonSyncMode.None)] public bool starter = false;
@@ -94,9 +96,18 @@ namespace TSFE.SFEXT
         private ParticleSystem.MainModule jetBlastMain;
         private float jetBlastInitialSpeed;
 
+        void Start()
+        {
+            // テスト環境用: SFEXT_L_EntityStartが呼ばれない場合の初期化
+            if (EntityControl == null)
+            {
+                SFEXT_L_EntityStart();
+            }
+        }
+
         public void SFEXT_L_EntityStart()
         {
-            isOwner = EntityControl.IsOwner;
+            isOwner = EntityControl != null ? EntityControl.IsOwner : true;
 
             if (idleSound) { idleVol = idleSound.volume; idlePit = idleSound.pitch; }
             if (insideSound) { insideVol = insideSound.volume; insidePit = insideSound.pitch; }
