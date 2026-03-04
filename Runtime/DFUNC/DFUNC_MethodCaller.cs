@@ -52,10 +52,58 @@ namespace TSFE.DFUNC
         // SaccFlightAndVehicles自動注入フィールド
         [System.NonSerialized] public UdonSharpBehaviour EntityControl;
         [System.NonSerialized] public int DialPosition = -999;
-        [System.NonSerialized] public int LeftDial = 0;
+        [System.NonSerialized] public bool LeftDial = false;
 
         private bool isSelected = false;
+        private bool isPilot = false;
         private bool prevTriggerPressed = false;
+
+        void Start()
+        {
+            Debug.Log($"[DFUNC_MethodCaller] Start called on {gameObject.name}, isPilot={isPilot}");
+            // Funconの初期状態を非表示にする
+            TSFE.Utility.TSFEUtil.SetDialFuncon(Dial_Funcon, Dial_Funcon_Array, false);
+
+            // パイロットがいない場合のみGameObjectを無効化
+            // （SFEXT_O_PilotEnterでisPilotがtrueになった後は無効化しない）
+            if (!isPilot)
+            {
+                Debug.Log($"[DFUNC_MethodCaller] Deactivating GameObject (no pilot)");
+                gameObject.SetActive(false);
+            }
+        }
+
+        // ========================================
+        // SaccFlightAndVehicles イベント
+        // ========================================
+
+        public void SFEXT_G_PilotEnter()
+        {
+            Debug.Log($"[DFUNC_MethodCaller] SFEXT_G_PilotEnter called on {gameObject.name}");
+            gameObject.SetActive(true);
+        }
+
+        public void SFEXT_G_PilotExit()
+        {
+            Debug.Log($"[DFUNC_MethodCaller] SFEXT_G_PilotExit called on {gameObject.name}");
+            gameObject.SetActive(false);
+        }
+
+        public void SFEXT_O_PilotEnter()
+        {
+            Debug.Log($"[DFUNC_MethodCaller] SFEXT_O_PilotEnter called, isPilot = true");
+            isPilot = true;
+        }
+
+        public void SFEXT_O_PilotExit()
+        {
+            Debug.Log($"[DFUNC_MethodCaller] SFEXT_O_PilotExit called, isPilot = false");
+            isPilot = false;
+        }
+
+        // ========================================
+        // DFUNC イベント
+        // ========================================
 
         public void DFUNC_Selected()
         {
@@ -97,24 +145,24 @@ namespace TSFE.DFUNC
 
         void Update()
         {
-            if (!isSelected) return;
-
-            // VRトリガー入力チェック
-            if (executeOnTriggerPress)
+            // VRトリガー入力チェック（選択中のみ）
+            if (isSelected && executeOnTriggerPress)
             {
-                bool triggerPressed = TSFE.Utility.TSFEUtil.IsTriggerPressed(LeftDial == 1);
+                bool triggerPressed = TSFE.Utility.TSFEUtil.IsTriggerPressed(LeftDial);
                 if (triggerPressed && !prevTriggerPressed)
                 {
+                    Debug.Log("[DFUNC_MethodCaller] VR Trigger pressed");
                     ExecuteMethod();
                 }
                 prevTriggerPressed = triggerPressed;
             }
 
-            // キー入力チェック
-            if (executeOnKeyDown && keyCode != KeyCode.None)
+            // キー入力チェック（パイロット時のみ）
+            if (isPilot && executeOnKeyDown && keyCode != KeyCode.None)
             {
                 if (Input.GetKeyDown(keyCode))
                 {
+                    Debug.Log($"[DFUNC_MethodCaller] Key pressed: {keyCode}");
                     ExecuteMethod();
                 }
             }

@@ -77,9 +77,26 @@ namespace TSFE.SFEXT
         /// トグル（公開メソッド）
         /// エンジンOFF時 → AutoStarter起動
         /// エンジンON時 → エンジンカット
+        /// AutoStarter実行中 → Abort
         /// </summary>
         public void Toggle()
         {
+            // AutoStarter実行中かチェック
+            if (autoStarter != null)
+            {
+                bool autoStarterRunning = (autoStarter.state != AutoStarterSequenceState.Idle &&
+                                          autoStarter.state != AutoStarterSequenceState.Completed &&
+                                          autoStarter.state != AutoStarterSequenceState.Failed);
+
+                if (autoStarterRunning)
+                {
+                    // AutoStarter実行中 → Abort（APU停止・エンジンカットはAutoStarterが処理）
+                    Debug.Log("[EngineToggle] AutoStarter is running - aborting sequence");
+                    autoStarter.AbortSequence();
+                    return;
+                }
+            }
+
             if (AllOperableEnginesRunning)
             {
                 // エンジンON → カット

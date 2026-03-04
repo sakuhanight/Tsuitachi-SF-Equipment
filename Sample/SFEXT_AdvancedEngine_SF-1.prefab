@@ -110,6 +110,9 @@ MonoBehaviour:
   starterPowerSource: {fileID: 0}
   autoStarterCutoff: 1
   starterCutoffThreshold: 0.95
+  enableDynamicThrust: 1
+  enableAsymmetricThrust: 1
+  enginePosition: {fileID: 1345566173562018307}
   SAVControl: {fileID: 0}
   vehicleAnimator: {fileID: 0}
   n1ParameterName: n1

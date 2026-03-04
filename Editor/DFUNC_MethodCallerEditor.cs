@@ -12,7 +12,8 @@ namespace TSFE.Editor
             if (UdonSharpGUI.DrawDefaultUdonSharpBehaviourHeader(target))
                 return;
 
-            var methodCaller = (TSFE.DFUNC.DFUNC_MethodCaller)target;
+            var methodCaller = target as TSFE.DFUNC.DFUNC_MethodCaller;
+            if (methodCaller == null) return;
 
             EditorGUILayout.Space();
 
@@ -22,23 +23,26 @@ namespace TSFE.Editor
                 EditorGUILayout.BeginVertical("box");
                 EditorGUILayout.LabelField("Method Caller Test (Play Mode)", EditorStyles.boldLabel);
 
-                if (methodCaller.targetComponent == null)
+                var targetComp = methodCaller.targetComponent;
+                var method = methodCaller.methodName;
+
+                if (targetComp == null)
                 {
                     EditorGUILayout.HelpBox("Target Component が設定されていません", MessageType.Warning);
                 }
-                else if (string.IsNullOrEmpty(methodCaller.methodName))
+                else if (string.IsNullOrEmpty(method))
                 {
                     EditorGUILayout.HelpBox("Method Name が設定されていません", MessageType.Warning);
                 }
                 else
                 {
-                    EditorGUILayout.LabelField("Target", methodCaller.targetComponent.GetType().Name);
-                    EditorGUILayout.LabelField("Method", methodCaller.methodName);
+                    EditorGUILayout.LabelField("Target", targetComp.GetType().Name);
+                    EditorGUILayout.LabelField("Method", method);
 
                     EditorGUILayout.Space();
 
                     GUI.color = Color.cyan;
-                    if (GUILayout.Button($"Execute: {methodCaller.methodName}()", GUILayout.Height(40)))
+                    if (GUILayout.Button($"Execute: {method}()", GUILayout.Height(40)))
                     {
                         methodCaller.Execute();
                     }

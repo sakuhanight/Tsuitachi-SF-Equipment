@@ -116,6 +116,7 @@ namespace TSFE.SFEXT
 
         /// <summary>
         /// シーケンス中断（公開メソッド）
+        /// APU停止、全エンジンカット、スターターOFF
         /// </summary>
         public void AbortSequence()
         {
@@ -125,7 +126,32 @@ namespace TSFE.SFEXT
                 return;
             }
 
-            Debug.Log("[AutoStarter] Aborting sequence");
+            Debug.Log("[AutoStarter] Aborting sequence - stopping APU and cutting all engines");
+
+            // APU停止（APUが存在する場合、StopAPU()が自動判定）
+            if (apu != null)
+            {
+                Debug.Log("[AutoStarter] Stopping APU on abort");
+                apu.StopAPU();
+            }
+
+            // 全エンジンカット（稼働可能なエンジンのみ）
+            if (engines != null)
+            {
+                for (int i = 0; i < engines.Length; i++)
+                {
+                    var engine = engines[i];
+                    if (engine == null) continue;
+
+                    // INOP判定（火災ハンドル引いたエンジンはスキップ）
+                    if (IsEngineInop(engine)) continue;
+
+                    engine.fuel = false;
+                    engine.starter = false;
+                    engine.RequestSerialization();
+                }
+            }
+
             state = AutoStarterSequenceState.Failed;
             statusMessage = "Aborted by user";
             UpdateIndicator();

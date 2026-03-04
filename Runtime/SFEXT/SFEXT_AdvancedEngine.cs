@@ -103,6 +103,14 @@ namespace TSFE.SFEXT
         [Range(0.9f, 1.0f)]
         public float starterCutoffThreshold = 0.95f;
 
+        [Header("推力適用設定")]
+        [Tooltip("動的ThrottleStrength調整を有効化 - エンジン推力計算に基づいてThrottleStrengthを更新")]
+        public bool enableDynamicThrust = true;
+        [Tooltip("非対称推力システムを有効化 - エンジン位置に基づいてトルク(ヨーイング)を生成")]
+        public bool enableAsymmetricThrust = false;
+        [Tooltip("エンジン位置 (ローカル座標) - 機体重心からの相対位置、nullの場合はこのGameObjectの位置を使用")]
+        public Transform enginePosition;
+
         [Header("コンポーネント")]
         public UdonSharpBehaviour SAVControl;
         public Animator vehicleAnimator;
@@ -212,17 +220,14 @@ namespace TSFE.SFEXT
                 if (rigidbody != null)
                 {
                     vehicleMass = rigidbody.mass;
-                    Debug.Log($"[{gameObject.name}] Vehicle mass: {vehicleMass:F0} kg | maxThrust: {maxThrust:F0} N | Sacc ThrottleStrength equivalent: {maxThrust / vehicleMass:F2} m/s²");
                 }
                 else
                 {
-                    Debug.LogWarning($"[{gameObject.name}] VehicleRigidbody not found, using default mass 19000kg");
                     vehicleMass = 19000f;
                 }
             }
             else
             {
-                Debug.LogWarning($"[{gameObject.name}] SAVControl not set, using default mass 19000kg");
                 vehicleMass = 19000f;
             }
 
@@ -250,30 +255,25 @@ namespace TSFE.SFEXT
         public void SFEXT_O_TakeOwnership()
         {
             isOwner = true;
-            Debug.Log($"[{gameObject.name}] TakeOwnership");
         }
 
         public void SFEXT_O_LoseOwnership()
         {
             isOwner = false;
-            Debug.Log($"[{gameObject.name}] LoseOwnership");
         }
 
         public void SFEXT_G_Explode()
         {
-            Debug.Log($"[{gameObject.name}] SFEXT_G_Explode called - resetting engine");
             ResetEngine();
         }
 
         public void SFEXT_G_RespawnButton()
         {
-            Debug.Log($"[{gameObject.name}] SFEXT_G_RespawnButton called - resetting engine");
             ResetEngine();
         }
 
         public void SFEXT_G_ReSupply()
         {
-            Debug.Log($"[{gameObject.name}] SFEXT_G_ReSupply called - resetting engine state");
             ResetEngine();
         }
 
@@ -285,7 +285,6 @@ namespace TSFE.SFEXT
             if (!isOwner) return;
             fireHandlePulled = !fireHandlePulled;
             RequestSerialization();
-            Debug.Log($"[Engine] Fire Handle: {(fireHandlePulled ? "PULLED" : "NORMAL")}");
         }
 
         /// <summary>
@@ -294,11 +293,7 @@ namespace TSFE.SFEXT
         public void DischargeExtinguisher()
         {
             if (!isOwner) return;
-            if (!fire)
-            {
-                Debug.Log("[Engine] No fire to extinguish");
-                return;
-            }
+            if (!fire) return;
 
             // 確率的に消火
             float roll = UnityEngine.Random.value;
@@ -306,11 +301,6 @@ namespace TSFE.SFEXT
             {
                 fire = false;
                 RequestSerialization();
-                Debug.Log($"[Engine] Fire extinguished! (roll={roll:F2} < {extinguishSuccessRate:F2})");
-            }
-            else
-            {
-                Debug.Log($"[Engine] Fire extinguisher failed (roll={roll:F2} >= {extinguishSuccessRate:F2})");
             }
         }
 
@@ -322,7 +312,6 @@ namespace TSFE.SFEXT
             if (!isOwner) return;
             fireAlarmMuted = !fireAlarmMuted;
             RequestSerialization();
-            Debug.Log($"[Engine] Fire Alarm: {(fireAlarmMuted ? "MUTED" : "UNMUTED")}");
         }
 
         private void ResetEngine()
@@ -345,7 +334,6 @@ namespace TSFE.SFEXT
                 float appliedAcceleration = appliedThrust / vehicleMass;
                 float t = (float)SAVControl.GetProgramVariable("ThrottleStrength");
                 SAVControl.SetProgramVariable("ThrottleStrength", t - appliedAcceleration);
-                Debug.Log($"[{gameObject.name}] ResetEngine: Removed thrust {appliedThrust:F0}N ({appliedAcceleration:F2}m/s²), ThrottleStrength now {t - appliedAcceleration:F2}m/s²");
                 appliedThrust = 0f;
             }
 
@@ -353,25 +341,13 @@ namespace TSFE.SFEXT
             if (isOwner)
             {
                 RequestSerialization();
-                Debug.Log($"[{gameObject.name}] ResetEngine: RequestSerialization called (Owner)");
             }
-            else
-            {
-                Debug.LogWarning($"[{gameObject.name}] ResetEngine: NOT owner, cannot RequestSerialization!");
-            }
-
-            Debug.Log($"[{gameObject.name}] ResetEngine COMPLETE: N1={N1}, N2={N2}, EGT={EGT}, ECT={ECT}, starter={starter}, fuel={fuel}, fire={fire}, engineOn={engineOn}, reversing={reversing}");
         }
 
         private void Update()
         {
             float dt = Time.deltaTime;
 
-            // 初期診断ログ
-            if (Time.frameCount == 100)
-            {
-                Debug.Log($"[{gameObject.name}] Initial Check: isOwner={isOwner}, SAVControl={(SAVControl != null ? "OK" : "NULL")}, starter={starter}, fuel={fuel}, N1={N1:F0}, N2={N2:F0}");
-            }
 
             if (isOwner)
             {
@@ -413,7 +389,6 @@ namespace TSFE.SFEXT
                 if (isOwner)
                 {
                     RequestSerialization();
-                    Debug.Log($"[{gameObject.name}] Auto Starter Cutoff: N2={N2:F0} RPM ({N2 / takeOffN2 * 100:F1}%) >= threshold {idleN2 * starterCutoffThreshold:F0} RPM ({starterCutoffThreshold * 100:F0}% of idle)");
                 }
             }
 
@@ -516,32 +491,103 @@ namespace TSFE.SFEXT
                 thrustRatio = Mathf.Lerp(idleThrustRatio, 1f, Mathf.Pow(t, thrustCurve));
             }
             float thrust = maxThrust * thrustRatio;
+            float baseThrust = thrust; // アフターバーナー適用前の推力を保存
 
             // アフターバーナー適用
             if (hasAfterburner && afterburnerLevel > 0.01f)
             {
-                thrust *= Mathf.Lerp(1f, afterburnerThrustMultiplier, afterburnerLevel);
+                float abMultiplier = Mathf.Lerp(1f, afterburnerThrustMultiplier, afterburnerLevel);
+                thrust *= abMultiplier;
+
+                // デバッグ: アフターバーナー適用時のみログ出力
+                if (Time.frameCount % 60 == 0 && afterburnerLevel > 0.5f)
+                {
+                    Debug.Log($"  AB Detail: baseThrust={baseThrust:F0}N → finalThrust={thrust:F0}N (mult={abMultiplier:F3})");
+                }
             }
 
             if (reverserPosition > 0f) thrust *= -(reverserRatio * reverserPosition);
 
-            // 推力適用 (ニュートンをm/s²に変換してSaccに適用)
+            // 推力適用
             if (SAVControl != null && vehicleMass > 0f)
             {
-                // ニュートン (N) を加速度 (m/s²) に変換
-                // Force (N) = mass (kg) × acceleration (m/s²)
-                // acceleration = Force / mass
-                float thrustAcceleration = thrust / vehicleMass;
-                float appliedAcceleration = appliedThrust / vehicleMass;
+                // SaccAirVehicleの_EngineOn変数を制御
+                bool savEngineOn = (bool)SAVControl.GetProgramVariable("_EngineOn");
 
-                float t = (float)SAVControl.GetProgramVariable("ThrottleStrength");
-                float newThrottle = t - appliedAcceleration + thrustAcceleration;
-                SAVControl.SetProgramVariable("ThrottleStrength", newThrottle);
-
-                // デバッグログ（初回のみ、または異常値検出時）
-                if (Time.frameCount < 300 || Mathf.Abs(thrust) > maxThrust * 2f)
+                if (engineOn && !savEngineOn)
                 {
-                    Debug.Log($"[{gameObject.name}] Frame:{Time.frameCount} | N1:{N1:F0} N2:{N2:F0} | EngineOn:{engineOn} | Thrust:{thrust:F0}N ({thrustAcceleration:F2}m/s²) | Applied:{appliedThrust:F0}N ({appliedAcceleration:F2}m/s²) | Total ThrottleStrength:{newThrottle:F2}m/s²");
+                    SAVControl.SetProgramVariable("_EngineOn", true);
+                    Debug.Log($"[{gameObject.name}] Setting SAV _EngineOn = true");
+                }
+                else if (!engineOn && savEngineOn)
+                {
+                    SAVControl.SetProgramVariable("_EngineOn", false);
+                    Debug.Log($"[{gameObject.name}] Setting SAV _EngineOn = false");
+                }
+
+                // 動的ThrottleStrength調整
+                if (enableDynamicThrust)
+                {
+                    // 現在のThrottleStrengthを取得
+                    float currentThrottleStrength = (float)SAVControl.GetProgramVariable("ThrottleStrength");
+
+                    // このエンジンの推力加速度を計算 (N → m/s²)
+                    float thrustAcceleration = thrust / vehicleMass;
+
+                    // 前回適用した推力との差分を計算
+                    float appliedAcceleration = appliedThrust / vehicleMass;
+                    float deltaAcceleration = thrustAcceleration - appliedAcceleration;
+
+                    // ThrottleStrengthに差分を加算（複数エンジンの場合、各エンジンが自分の貢献分を加算）
+                    float newThrottleStrength = currentThrottleStrength + deltaAcceleration;
+                    SAVControl.SetProgramVariable("ThrottleStrength", newThrottleStrength);
+                }
+
+                // 非対称推力システム (トルク生成)
+                if (enableAsymmetricThrust)
+                {
+                    // VehicleRigidbodyを取得
+                    object rbObj = SAVControl.GetProgramVariable("VehicleRigidbody");
+                    if (rbObj != null)
+                    {
+                        Rigidbody vehicleRb = (Rigidbody)rbObj;
+
+                        // エンジン位置を取得 (nullの場合はこのGameObjectの位置)
+                        Transform engPos = enginePosition != null ? enginePosition : transform;
+
+                        // ワールド座標でのエンジン位置から機体重心までのベクトル
+                        Vector3 rVector = engPos.position - vehicleRb.worldCenterOfMass;
+
+                        // 推力方向 (エンジンのローカルZ軸 = 前方)
+                        Vector3 thrustForce = engPos.forward * thrust;
+
+                        // トルク計算: τ = r × F
+                        // エンジンが左右に配置されている場合、片側停止で機体がヨーイングする
+                        Vector3 torque = Vector3.Cross(rVector, thrustForce);
+
+                        // Rigidbodyに直接トルクを適用 (ForceMode.Force = 連続的な力)
+                        vehicleRb.AddTorque(torque, ForceMode.Force);
+
+                        // トルクデバッグ(60フレームごと)
+                        if (Time.frameCount % 60 == 0)
+                        {
+                            // 機体ローカル座標に変換して表示
+                            Vector3 localR = SAVControl.transform.InverseTransformDirection(rVector);
+                            Vector3 localTorque = SAVControl.transform.InverseTransformDirection(torque);
+                            Debug.Log($"  Torque: r={localR:F2} thrust={thrust:F0}N torque={localTorque:F1}Nm (Y={localTorque.y:F1} yaw)");
+                        }
+                    }
+                }
+
+                // 推力デバッグログ（1秒ごと）
+                if (Time.frameCount % 60 == 0)
+                {
+                    float savEngineOutput = (float)SAVControl.GetProgramVariable("EngineOutput");
+                    float savThrottleInput = (float)SAVControl.GetProgramVariable("ThrottleInput");
+                    float savThrottleStrength = (float)SAVControl.GetProgramVariable("ThrottleStrength");
+                    Debug.Log($"[{gameObject.name}] N1:{N1:F0}/{takeOffN1:F0} N2:{N2:F0}/{takeOffN2:F0} | EngineOn:{engineOn} | Throttle:{throttleInput:F2}");
+                    Debug.Log($"  Thrust: {thrust:F0}N ({thrust/vehicleMass:F4}m/s²) | AB_Level:{afterburnerLevel:F3} AB_Mult:{afterburnerThrustMultiplier:F2}");
+                    Debug.Log($"  SAV: _EngineOn={savEngineOn} EngineOutput={savEngineOutput:F4} ThrottleInput={savThrottleInput:F4} ThrottleStrength={savThrottleStrength:F4}");
                 }
 
                 appliedThrust = thrust;
@@ -888,7 +934,6 @@ namespace TSFE.SFEXT
         private void OnFireStart()
         {
             // 火災発生時の処理（音は UpdateSound() で自動的に再生される）
-            Debug.Log("[Engine] Fire detected!");
         }
 
         private void UpdateEffects()
