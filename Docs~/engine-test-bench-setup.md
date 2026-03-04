@@ -8,14 +8,22 @@
 EngineTestBench (親GameObject)
 ├── MockSAVControl (テスト用SAV)
 │   └── MockSAVControl component
-├── TestController (テストコントローラー)
+├── PowerBus (電力バス)
+│   └── TSFE_PowerBus component
+├── BleedAirBus (ブリード空気バス)
+│   └── TSFE_BleedAirBus component
+├── EngineTestController (エンジンテストコントローラー)
 │   └── SFEXT_AdvancedEngineTest component
-└── SFEXT_AdvancedEngine_CFM56-7B27 (テスト対象エンジン 1基)
-    └── SFEXT_AdvancedEngine component
+├── APUTestController (APUテストコントローラー)
+│   └── SFEXT_AuxiliaryPowerUnitTest component
+├── Engine_Test (テスト対象エンジン 1基)
+│   └── SFEXT_AdvancedEngine component
+└── APU_Test (テスト対象APU)
+    └── SFEXT_AuxiliaryPowerUnit component
 ```
 
 **ワークフロー**:
-1. `Engine_Test` で1基のエンジンをテスト・調整
+1. 各コンポーネントを個別にテスト・調整
 2. パラメータが確定したらPrefab化
 3. 実機に必要な数だけ複製して搭載
 
@@ -37,14 +45,47 @@ EngineTestBench (親GameObject)
    - Vehicle Animator: なし (任意)
    - Controls Root: `MockSAVControl` 自身
 
-### 3. TestController 作成
+### 3. PowerBus 作成
 
-1. `EngineTestBench` の子として空の GameObject 作成: `TestController`
+1. `EngineTestBench` の子として空の GameObject 作成: `PowerBus`
+2. `TSFE_PowerBus` コンポーネント追加
+3. 設定:
+   - APU Component: **後でAPUを選択**
+   - APU Parameter Name: `started`
+   - Engine Components: **後でエンジンを選択** (配列、サイズ1)
+   - Engine Parameter Name: `EngineOn`
+   - GPU Object: なし (任意、地上電源車)
+   - Update Interval: 0.1秒
+
+### 3b. BleedAirBus 作成
+
+1. `EngineTestBench` の子として空の GameObject 作成: `BleedAirBus`
+2. `TSFE_BleedAirBus` コンポーネント追加
+3. 設定:
+   - APU Component: **後でAPUを選択**
+   - APU Parameter Name: `started`
+   - Engine Components: **後でエンジンを選択** (配列、サイズ1)
+   - Engine Parameter Name: `EngineOn`
+   - ASU Object: なし (任意、地上空調車)
+   - Update Interval: 0.1秒
+
+### 3c. EngineTestController 作成
+
+1. `EngineTestBench` の子として空の GameObject 作成: `EngineTestController`
 2. `SFEXT_AdvancedEngineTest` コンポーネント追加
 3. 設定:
    - Engine: **後でエンジンを選択**
    - Debug Text: なし (任意、UI Text使用時のみ)
    - キーバインド: デフォルトでOK
+
+### 3d. APUTestController 作成
+
+1. `EngineTestBench` の子として空の GameObject 作成: `APUTestController`
+2. `SFEXT_AuxiliaryPowerUnitTest` コンポーネント追加
+3. 設定:
+   - APU: **後でAPUを選択**
+   - Debug Text: なし (任意、UI Text使用時のみ)
+   - キーバインド: デフォルト (A: Toggle APU)
 
 ### 4. エンジン作成 (例: CFM56)
 
@@ -58,13 +99,35 @@ EngineTestBench (親GameObject)
    - 温度: デフォルト
    - 逆噴射: デフォルト
    - 故障 MTBF: デフォルト
+   - **始動システム**:
+     - Electric Starter: ON (電動スターター)
+     - Standalone Start: ON (テスト用、単独始動モード)
+     - Power Bus: 空欄 (Standalone Start有効時は不要)
+     - Bleed Air Bus: 空欄
    - コンポーネント:
      - Vehicle Animator: なし (任意)
      - サウンド: なし (任意)
      - エフェクト: なし (任意)
 
-4. TestController の設定に戻る:
+4. EngineTestController の設定に戻る:
    - **Engine**: `Engine_Test`
+
+**注意**: Standalone Start を ON にすると、PowerBus/BleedAirBus無しでエンジン始動可能（テスト用）。統合テスト時は OFF にしてください。
+
+### 4b. APU作成
+
+1. `EngineTestBench` の子として空の GameObject 作成: `APU_Test`
+2. `SFEXT_AuxiliaryPowerUnit` コンポーネント追加
+3. 設定:
+   - APU Audio Source: なし (任意)
+   - APU Start/Loop/Stop: なし (任意、AudioClip)
+   - Cross Fade Duration: 3.0秒
+   - Default APU Start Duration: 30秒
+   - Default APU Stop Duration: 10秒
+   - Exhaust Effect: なし (任意、ParticleSystem)
+
+4. APUTestController の設定に戻る:
+   - **APU**: `APU_Test`
 
 ### 5. UI デバッグ表示（任意）
 
@@ -75,22 +138,87 @@ EngineTestBench (親GameObject)
    - Position: (185, -180)
    - Size: (350, 340)
    - Font Size: 14
-4. `TestController` の `Debug Text` に設定
+4. `EngineTestController` と `APUTestController` の `Debug Text` に設定
 
 ## テスト手順
 
-### 基本テスト
+### エンジン単体テスト
 
 1. Play Mode 開始
-2. `Engine_Test` または `TestController` を選択
+2. `Engine_Test` または `EngineTestController` を選択
 3. Inspector で操作:
-   - **Starter ON** → N2 が 30% まで上昇 (約10秒)
-   - **Fuel ON** → N2 が 50% (Idle) まで上昇 (約20秒)
-   - **Throttle スライダー** → N1 が上昇、推力発生
-   - **Reverser ON** → 推力が負に反転
+   - **Starter ON** → N2 が 25% まで上昇 (約10秒)
+   - **Fuel ON** → N2 が 60% (Idle) まで上昇 (約20秒)
+   - **Throttle 100%** → N1/N2 が 100% まで上昇 (約5秒)
+   - **Reverser ON** → 推力が負に反転 (-50%)
 4. パラメータ調整:
    - Response Time Calculator で時間調整
    - Settings で詳細パラメータ調整
+
+### APU単体テスト
+
+1. Play Mode 開始
+2. `APU_Test` または `APUTestController` を選択
+3. Inspector で操作:
+   - **Toggle APU** または **Start APU** → APU起動開始 (約30秒)
+   - **Started** が YES になるまで待つ
+   - **Stop APU** → APU停止開始 (約10秒)
+   - **Terminated** が YES になるまで待つ
+
+### APUとエンジンの統合テスト (電動スターター)
+
+**事前準備**:
+1. `Engine_Test` の **Standalone Start を OFF** に設定
+2. `Engine_Test` の **Power Bus** に `PowerBus` を設定
+3. `PowerBus` の **APU Component** に `APU_Test` を設定
+4. `PowerBus` の **Engine Components** (配列サイズ1) に `Engine_Test` を設定
+
+**テスト手順**:
+1. Play Mode 開始
+2. `Engine_Test` を選択 → **Starter System** セクション確認:
+   - Starter Type: `Electric`
+   - Electric Power: `NOT AVAILABLE` (赤)
+3. APU起動:
+   - `APU_Test` を選択 → **Start APU**
+   - **Started** が YES になるまで待つ (約30秒)
+4. `Engine_Test` を選択 → Electric Power が `AVAILABLE` (緑) になることを確認
+5. エンジン始動 (APU電源使用):
+   - **Starter ON** → N2 が 25% まで上昇 (約10秒)
+   - **Fuel ON** → エンジンがIdle (60% N2) に到達 (約20秒)
+6. APU停止:
+   - `APU_Test` を選択 → **Stop APU**
+   - エンジンは継続運転（自己発電）
+   - `Engine_Test` の Electric Power が `AVAILABLE` のまま (エンジンからの電力)
+7. エンジン出力テスト:
+   - **Throttle 100%** → フル推力確認 (N1/N2 100%)
+
+### APUとエンジンの統合テスト (空気タービン式スターター)
+
+**事前準備**:
+1. `Engine_Test` の **Electric Starter を OFF** に設定
+2. `Engine_Test` の **Standalone Start を OFF** に設定
+3. `Engine_Test` の **Bleed Air Bus** に `BleedAirBus` を設定
+4. `BleedAirBus` の **APU Component** に `APU_Test` を設定
+5. `BleedAirBus` の **Engine Components** (配列サイズ1) に `Engine_Test` を設定
+
+**テスト手順**:
+1. Play Mode 開始
+2. `Engine_Test` を選択 → **Starter System** セクション確認:
+   - Starter Type: `Air Turbine`
+   - Bleed Air: `NOT AVAILABLE` (赤)
+3. APU起動:
+   - `APU_Test` を選択 → **Start APU**
+   - **Started** が YES になるまで待つ
+4. `Engine_Test` を選択 → Bleed Air が `AVAILABLE` (緑) になることを確認
+5. エンジン始動 (APUブリード空気使用):
+   - **Starter ON** → N2 が 25% まで上昇
+   - **Fuel ON** → エンジンがIdle (60% N2) に到達
+6. APU停止:
+   - `APU_Test` を選択 → **Stop APU**
+   - エンジンは継続運転
+   - `Engine_Test` の Bleed Air が `AVAILABLE` のまま (エンジンからのブリード)
+7. エンジン出力テスト:
+   - **Throttle 100%** → フル推力確認
 
 ### 別エンジンのテスト
 

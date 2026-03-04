@@ -11,32 +11,44 @@ namespace TSFE.SFEXT
     public class SFEXT_AdvancedEngine : UdonSharpBehaviour
     {
         [Header("動力系")]
+        [Tooltip("最大推力 (N) - この値を機体質量で割った値がSaccに適用されます")]
         public float maxThrust = 130408.51f;
         public float thrustCurve = 2.0f;
+        [Tooltip("アイドル時の推力 (% of maxThrust) - 通常7-10%")]
+        [Range(0.05f, 0.15f)]
+        public float idleThrustRatio = 0.075f;
 
         [Header("N1 (低圧) RPM")]
         public float idleN1 = 879.6f;
         public float referenceN1 = 4397f;
         public float takeOffN1 = 4586f;
         [Tooltip("N1上昇応答速度 (Idle→TakeOff: 約5秒)")]
-        public float n1Response = 0.2f;
+        public float n1Response = 0.6f;
         [Tooltip("N1減少応答速度 (TakeOff→Idle: 約8秒)")]
-        public float n1DecreaseResponse = 0.125f;
+        public float n1DecreaseResponse = 0.375f;
         [Tooltip("N1始動時応答速度 (未使用)")]
         public float n1StartupResponse = 0.01f;
 
         [Header("N2 (高圧) RPM")]
-        public float idleN2 = 8583.5f;
+        public float idleN2 = 12100f;
         public float referenceN2 = 17167f;
         public float takeOffN2 = 20171f;
+        [Tooltip("Starter目標N2 (% of takeOffN2) - CFM56: 25%, FJ44: 20%")]
+        [Range(0.15f, 0.35f)]
+        public float starterTargetN2 = 0.25f;
+        [Tooltip("燃料投入可能最低N2 (% of takeOffN2) - 通常はstarterTargetN2と同じ、早期投入なら低く設定")]
+        [Range(0.15f, 0.35f)]
+        public float minN2ForIgnition = 0.25f;
         [Tooltip("N2応答速度 (Fuel ON→Idle: 約20秒)")]
-        public float n2Response = 0.05f;
+        public float n2Response = 0.15f;
         [Tooltip("N2減少応答速度")]
-        public float n2DecreaseResponse = 0.04f;
-        [Tooltip("N2始動応答速度 (Starter→30%: 約10秒)")]
-        public float n2StartupResponse = 0.1f;
+        public float n2DecreaseResponse = 0.12f;
+        [Tooltip("N2始動応答速度 (Starter→目標: 約10秒)")]
+        public float n2StartupResponse = 0.3f;
 
         [Header("温度 (°C)")]
+        [Tooltip("外気温度 (ISA標準: 地上15°C、熱帯35°C、高高度-54°C)")]
+        public float ambientTemp = 15f;
         public float idleEGT = 725f;
         public float continuousEGT = 1013f;
         public float takeOffEGT = 1038f;
@@ -54,10 +66,42 @@ namespace TSFE.SFEXT
         public float reverserExtractResponse = 0.5f;
         public float reverserRetractResponse = 0.5f;
 
+        [Header("アフターバーナー")]
+        [Tooltip("アフターバーナー有効化")]
+        public bool hasAfterburner = false;
+        [Tooltip("アフターバーナー点火スロットル閾値（0-1）")]
+        [Range(0.7f, 1.0f)]
+        public float afterburnerThreshold = 0.95f;
+        [Tooltip("アフターバーナー時の推力倍率")]
+        [Range(1.0f, 2.0f)]
+        public float afterburnerThrustMultiplier = 1.5f;
+        [Tooltip("アフターバーナー点火/消火の応答速度")]
+        public float afterburnerResponse = 2f;
+
         [Header("故障 MTBF (秒)")]
         public float mtbFireAtContinuous = 2592000f;
         public float mtbFireAtOverheat = 90f;
         public float mtbMeltdownOnFire = 90f;
+
+        [Header("高出力連続運転制限")]
+        [Tooltip("高出力連続運転制限を有効化")]
+        public bool enableContinuousPowerLimit = true;
+        [Tooltip("制限対象の推力比率 (0.9 = 90%以上)")]
+        [Range(0.7f, 1.0f)]
+        public float continuousPowerThreshold = 0.9f;
+        [Tooltip("連続運転許容時間 (秒) - この時間を超えると故障判定開始")]
+        public float continuousPowerTimeLimit = 120f;
+        [Tooltip("制限時間超過後のMTBF (秒) - 短いほど故障しやすい")]
+        public float mtbFireAtContinuousPower = 60f;
+
+        [Header("始動システム")]
+        [Tooltip("スターター電源/ブリード空気源（PowerBus/poweredIndicator または BleedAirBus/bleedAirIndicator、null=単独始動可能）")]
+        public GameObject starterPowerSource;
+        [Tooltip("自動スターターカットを有効化 - アイドル回転到達時に自動的にスターターを切る")]
+        public bool autoStarterCutoff = true;
+        [Tooltip("自動スターターカット閾値 (% of idleN2) - この回転数に達したらスターターを切る")]
+        [Range(0.9f, 1.0f)]
+        public float starterCutoffThreshold = 0.95f;
 
         [Header("コンポーネント")]
         public UdonSharpBehaviour SAVControl;
@@ -66,13 +110,52 @@ namespace TSFE.SFEXT
         public string n2ParameterName = "n2";
         public string reverserParameterName = "reverser";
         public string fireParameterName = "fire";
+        public string afterburnerParameterName = "afterburner";
 
         [Header("サウンド")]
         public AudioSource idleSound;
         public AudioSource insideSound;
         public AudioSource thrustSound;
         public AudioSource takeoffSound;
-        public AudioSource fireSound;
+        [Tooltip("逆噴射音（リバーサー展開中のみ）")]
+        public AudioSource reverserSound;
+        [Tooltip("アフターバーナー音（AB点火中のみ）")]
+        public AudioSource afterburnerSound;
+
+        [Header("サウンド音量調整 (1.0 = 通常)")]
+        [Tooltip("idleSound音量倍率")]
+        [Range(0f, 2f)]
+        public float idleVolumeMultiplier = 1f;
+        [Tooltip("insideSound音量倍率")]
+        [Range(0f, 2f)]
+        public float insideVolumeMultiplier = 1f;
+        [Tooltip("thrustSound音量倍率")]
+        [Range(0f, 2f)]
+        public float thrustVolumeMultiplier = 1f;
+        [Tooltip("takeoffSound音量倍率")]
+        [Range(0f, 2f)]
+        public float takeoffVolumeMultiplier = 1f;
+        [Tooltip("reverserSound音量倍率")]
+        [Range(0f, 2f)]
+        public float reverserVolumeMultiplier = 1f;
+        [Tooltip("afterburnerSound音量倍率")]
+        [Range(0f, 2f)]
+        public float afterburnerVolumeMultiplier = 1f;
+
+        [Header("火災サウンド")]
+        [Tooltip("エンジン火災の燃焼音（3D空間音）")]
+        public AudioSource fireBurnSound;
+        [Tooltip("火災警報音（2D UI音、コックピット内）")]
+        public AudioSource fireAlarmSound;
+
+        [Header("消火システム")]
+        [Tooltip("消火剤投入時の火災消火成功率 (0-1)")]
+        [Range(0f, 1f)]
+        public float extinguishSuccessRate = 0.85f;
+        [Tooltip("ファイヤーハンドル引いた状態で燃料カット")]
+        public bool fireHandleCutsFuel = true;
+        [Tooltip("ファイヤーハンドル引いた状態で油圧カット（将来の拡張用）")]
+        public bool fireHandleCutsHydraulics = false;
 
         [Header("エフェクト")]
         public ParticleSystem jetBlastParticle;
@@ -81,6 +164,10 @@ namespace TSFE.SFEXT
         public float intakeHazardRadius = 2f;
         public float exhaustHazardRadius = 3f;
         public float exhaustHazardDistance = 10f;
+
+        [Header("状態インジケータ")]
+        [Tooltip("エンジン起動中に有効化するGameObject（PowerBus/BleedAirBusからの参照用）")]
+        public GameObject engineOnIndicator;
 
         [System.NonSerialized] public SaccEntity EntityControl;
 
@@ -92,13 +179,18 @@ namespace TSFE.SFEXT
         [UdonSynced(UdonSyncMode.Smooth)] public float EGT = 0f;
         [UdonSynced(UdonSyncMode.Smooth)] public float ECT = 0f;
         [UdonSynced(UdonSyncMode.None)] public bool fire = false;
+        [UdonSynced(UdonSyncMode.None)] public bool fireHandlePulled = false;
+        [UdonSynced(UdonSyncMode.None)] public bool fireAlarmMuted = false;
 
         private bool isOwner, engineOn, meltdown;
         private float throttleInput, reverserPosition, appliedThrust;
-        private float idleVol, insideVol, thrustVol, takeoffVol;
-        private float idlePit, insidePit, thrustPit, takeoffPit;
+        private float idleVol, insideVol, thrustVol, takeoffVol, reverserVol, afterburnerVol;
+        private float idlePit, insidePit, thrustPit, takeoffPit, reverserPit, afterburnerPit;
         private ParticleSystem.MainModule jetBlastMain;
         private float jetBlastInitialSpeed;
+        private float continuousPowerTime; // 高出力連続運転時間
+        private float afterburnerLevel; // アフターバーナーレベル (0-1)
+        private float vehicleMass; // 機体質量 (kg)
 
         void Start()
         {
@@ -113,10 +205,38 @@ namespace TSFE.SFEXT
         {
             isOwner = EntityControl != null ? EntityControl.IsOwner : true;
 
-            if (idleSound) { idleVol = idleSound.volume; idlePit = idleSound.pitch; }
-            if (insideSound) { insideVol = insideSound.volume; insidePit = insideSound.pitch; }
-            if (thrustSound) { thrustVol = thrustSound.volume; thrustPit = thrustSound.pitch; }
-            if (takeoffSound) { takeoffVol = takeoffSound.volume; takeoffPit = takeoffSound.pitch; }
+            // 機体質量を取得
+            if (SAVControl != null)
+            {
+                var rigidbody = (Rigidbody)SAVControl.GetProgramVariable("VehicleRigidbody");
+                if (rigidbody != null)
+                {
+                    vehicleMass = rigidbody.mass;
+                    Debug.Log($"[{gameObject.name}] Vehicle mass: {vehicleMass:F0} kg | maxThrust: {maxThrust:F0} N | Sacc ThrottleStrength equivalent: {maxThrust / vehicleMass:F2} m/s²");
+                }
+                else
+                {
+                    Debug.LogWarning($"[{gameObject.name}] VehicleRigidbody not found, using default mass 19000kg");
+                    vehicleMass = 19000f;
+                }
+            }
+            else
+            {
+                Debug.LogWarning($"[{gameObject.name}] SAVControl not set, using default mass 19000kg");
+                vehicleMass = 19000f;
+            }
+
+            // AudioSource初期化（すべてループ、初期無効）
+            if (idleSound) { idleVol = idleSound.volume; idlePit = idleSound.pitch; idleSound.loop = true; idleSound.volume = 0f; idleSound.gameObject.SetActive(false); }
+            if (insideSound) { insideVol = insideSound.volume; insidePit = insideSound.pitch; insideSound.loop = true; insideSound.volume = 0f; insideSound.gameObject.SetActive(false); }
+            if (thrustSound) { thrustVol = thrustSound.volume; thrustPit = thrustSound.pitch; thrustSound.loop = true; thrustSound.volume = 0f; thrustSound.gameObject.SetActive(false); }
+            if (takeoffSound) { takeoffVol = takeoffSound.volume; takeoffPit = takeoffSound.pitch; takeoffSound.loop = true; takeoffSound.volume = 0f; takeoffSound.gameObject.SetActive(false); }
+            if (reverserSound) { reverserVol = reverserSound.volume; reverserPit = reverserSound.pitch; reverserSound.loop = true; reverserSound.volume = 0f; reverserSound.gameObject.SetActive(false); }
+            if (afterburnerSound) { afterburnerVol = afterburnerSound.volume; afterburnerPit = afterburnerSound.pitch; afterburnerSound.loop = true; afterburnerSound.volume = 0f; afterburnerSound.gameObject.SetActive(false); }
+
+            // 火災音初期化（初期無効）
+            if (fireBurnSound) { fireBurnSound.loop = true; fireBurnSound.volume = 0f; fireBurnSound.gameObject.SetActive(false); }
+            if (fireAlarmSound) { fireAlarmSound.loop = true; fireAlarmSound.volume = 0f; fireAlarmSound.gameObject.SetActive(false); }
 
             if (jetBlastParticle)
             {
@@ -127,31 +247,138 @@ namespace TSFE.SFEXT
             ResetEngine();
         }
 
-        public void SFEXT_O_TakeOwnership() { isOwner = true; }
-        public void SFEXT_O_LoseOwnership() { isOwner = false; }
-        public void SFEXT_G_Explode() { ResetEngine(); }
-        public void SFEXT_G_RespawnButton() { ResetEngine(); }
+        public void SFEXT_O_TakeOwnership()
+        {
+            isOwner = true;
+            Debug.Log($"[{gameObject.name}] TakeOwnership");
+        }
+
+        public void SFEXT_O_LoseOwnership()
+        {
+            isOwner = false;
+            Debug.Log($"[{gameObject.name}] LoseOwnership");
+        }
+
+        public void SFEXT_G_Explode()
+        {
+            Debug.Log($"[{gameObject.name}] SFEXT_G_Explode called - resetting engine");
+            ResetEngine();
+        }
+
+        public void SFEXT_G_RespawnButton()
+        {
+            Debug.Log($"[{gameObject.name}] SFEXT_G_RespawnButton called - resetting engine");
+            ResetEngine();
+        }
+
+        public void SFEXT_G_ReSupply()
+        {
+            Debug.Log($"[{gameObject.name}] SFEXT_G_ReSupply called - resetting engine state");
+            ResetEngine();
+        }
+
+        /// <summary>
+        /// ファイヤーハンドルを引く/戻す
+        /// </summary>
+        public void ToggleFireHandle()
+        {
+            if (!isOwner) return;
+            fireHandlePulled = !fireHandlePulled;
+            RequestSerialization();
+            Debug.Log($"[Engine] Fire Handle: {(fireHandlePulled ? "PULLED" : "NORMAL")}");
+        }
+
+        /// <summary>
+        /// 消火剤投入（1回のみ使用可能、確率的に消火）
+        /// </summary>
+        public void DischargeExtinguisher()
+        {
+            if (!isOwner) return;
+            if (!fire)
+            {
+                Debug.Log("[Engine] No fire to extinguish");
+                return;
+            }
+
+            // 確率的に消火
+            float roll = UnityEngine.Random.value;
+            if (roll < extinguishSuccessRate)
+            {
+                fire = false;
+                RequestSerialization();
+                Debug.Log($"[Engine] Fire extinguished! (roll={roll:F2} < {extinguishSuccessRate:F2})");
+            }
+            else
+            {
+                Debug.Log($"[Engine] Fire extinguisher failed (roll={roll:F2} >= {extinguishSuccessRate:F2})");
+            }
+        }
+
+        /// <summary>
+        /// 火災警報音のみミュート/アンミュート
+        /// </summary>
+        public void ToggleFireAlarmMute()
+        {
+            if (!isOwner) return;
+            fireAlarmMuted = !fireAlarmMuted;
+            RequestSerialization();
+            Debug.Log($"[Engine] Fire Alarm: {(fireAlarmMuted ? "MUTED" : "UNMUTED")}");
+        }
 
         private void ResetEngine()
         {
-            N1 = N2 = EGT = ECT = reverserPosition = 0f;
-            reversing = starter = fuel = fire = meltdown = engineOn = false;
+            // Synced変数のリセット
+            N1 = N2 = 0f;
+            EGT = ECT = ambientTemp; // 大気温度で初期化
+            reversing = starter = fuel = fire = false;
+            fireHandlePulled = fireAlarmMuted = false;
 
-            if (SAVControl != null && appliedThrust != 0f)
+            // ローカル変数のリセット
+            reverserPosition = 0f;
+            meltdown = engineOn = false;
+            continuousPowerTime = 0f;
+            afterburnerLevel = 0f;
+
+            // ThrottleStrengthから適用済み推力を除去
+            if (SAVControl != null && appliedThrust != 0f && vehicleMass > 0f)
             {
+                float appliedAcceleration = appliedThrust / vehicleMass;
                 float t = (float)SAVControl.GetProgramVariable("ThrottleStrength");
-                SAVControl.SetProgramVariable("ThrottleStrength", t - appliedThrust);
+                SAVControl.SetProgramVariable("ThrottleStrength", t - appliedAcceleration);
+                Debug.Log($"[{gameObject.name}] ResetEngine: Removed thrust {appliedThrust:F0}N ({appliedAcceleration:F2}m/s²), ThrottleStrength now {t - appliedAcceleration:F2}m/s²");
                 appliedThrust = 0f;
             }
+
+            // Udon同期変数の変更を同期
+            if (isOwner)
+            {
+                RequestSerialization();
+                Debug.Log($"[{gameObject.name}] ResetEngine: RequestSerialization called (Owner)");
+            }
+            else
+            {
+                Debug.LogWarning($"[{gameObject.name}] ResetEngine: NOT owner, cannot RequestSerialization!");
+            }
+
+            Debug.Log($"[{gameObject.name}] ResetEngine COMPLETE: N1={N1}, N2={N2}, EGT={EGT}, ECT={ECT}, starter={starter}, fuel={fuel}, fire={fire}, engineOn={engineOn}, reversing={reversing}");
         }
 
         private void Update()
         {
             float dt = Time.deltaTime;
 
+            // 初期診断ログ
+            if (Time.frameCount == 100)
+            {
+                Debug.Log($"[{gameObject.name}] Initial Check: isOwner={isOwner}, SAVControl={(SAVControl != null ? "OK" : "NULL")}, starter={starter}, fuel={fuel}, N1={N1:F0}, N2={N2:F0}");
+            }
+
             if (isOwner)
             {
-                throttleInput = (float)SAVControl.GetProgramVariable("ThrottleInput");
+                if (SAVControl != null)
+                {
+                    throttleInput = (float)SAVControl.GetProgramVariable("ThrottleInput");
+                }
                 UpdateEngine(dt);
                 UpdateDamage(dt);
             }
@@ -160,22 +387,55 @@ namespace TSFE.SFEXT
             UpdateSound();
             UpdateEffects();
             UpdatePlayerHazards();
+            UpdateEngineOnIndicator();
         }
 
         private void UpdateEngine(float dt)
         {
-            engineOn = N2 >= idleN2 * 0.5f;
+            // ファイヤーハンドル引いた状態での燃料カット
+            bool effectiveFuel = fuel;
+            if (fireHandlePulled && fireHandleCutsFuel)
+            {
+                effectiveFuel = false;
+            }
+
+            // エンジン稼働判定: 燃料投入 + N2が燃焼維持可能な回転数
+            // 燃焼が始まればN2は自力で加速、N1も回転開始
+            engineOn = effectiveFuel && N2 >= takeOffN2 * minN2ForIgnition;
+
+            // スターター電源/ブリード空気チェック
+            bool starterPowerAvailable = CheckStarterPowerAvailable();
+
+            // 自動スターターカットオフ
+            if (autoStarterCutoff && starter && N2 >= idleN2 * starterCutoffThreshold)
+            {
+                starter = false;
+                if (isOwner)
+                {
+                    RequestSerialization();
+                    Debug.Log($"[{gameObject.name}] Auto Starter Cutoff: N2={N2:F0} RPM ({N2 / takeOffN2 * 100:F1}%) >= threshold {idleN2 * starterCutoffThreshold:F0} RPM ({starterCutoffThreshold * 100:F0}% of idle)");
+                }
+            }
 
             // N2更新
-            if (starter && !meltdown)
+            // Starter使用中、またはエンジンが自立回転に達していない場合
+            // 浮動小数点誤差を考慮して99%で判定
+            bool needsStarter = starter || (effectiveFuel && N2 < idleN2 * 0.99f);
+
+            if (needsStarter && !meltdown && starterPowerAvailable)
             {
-                float target = fuel ? idleN2 : idleN2 * 0.3f;
-                float resp = fuel ? n2StartupResponse : n2StartupResponse * 0.5f;
+                float target = effectiveFuel ? idleN2 : takeOffN2 * starterTargetN2;
+                float resp = effectiveFuel ? n2Response : n2StartupResponse;
                 N2 = Mathf.MoveTowards(N2, target, resp * Mathf.Abs(target - N2) * dt);
             }
             else if (engineOn && !meltdown)
             {
-                float target = TSFEUtil.ClampedRemap(N1, idleN1, referenceN1, idleN2, referenceN2);
+                // Throttle入力に基づくN2目標
+                float n2FromThrottle = Mathf.Lerp(idleN2, takeOffN2, throttleInput);
+                // N1に基づくN2制限（N1がまだ上がっていない場合の制限）
+                float n2FromN1 = TSFEUtil.ClampedRemap(N1, idleN1, takeOffN1, idleN2, takeOffN2);
+                // 両方のうち高い方を使用（throttleが高ければN2が先行して上がる）
+                float target = Mathf.Max(n2FromThrottle, n2FromN1);
                 N2 = Mathf.MoveTowards(N2, target, n2Response * Mathf.Abs(target - N2) * dt);
             }
             else
@@ -187,7 +447,9 @@ namespace TSFE.SFEXT
             if (engineOn && !meltdown)
             {
                 float target = Mathf.Lerp(idleN1, takeOffN1, throttleInput);
-                target = Mathf.Min(target, TSFEUtil.ClampedRemap(N2, idleN2, takeOffN2, idleN1, takeOffN1));
+                // N2がidleの99%以上ならN1制限なし、それ以下ならN2に応じて制限
+                float n2Min = idleN2 * 0.99f;
+                target = Mathf.Min(target, TSFEUtil.ClampedRemap(N2, n2Min, takeOffN2, idleN1, takeOffN1));
                 float resp = target > N1 ? n1Response : n1DecreaseResponse;
                 N1 = Mathf.MoveTowards(N1, target, resp * Mathf.Abs(target - N1) * dt);
             }
@@ -197,13 +459,33 @@ namespace TSFE.SFEXT
             }
 
             // 温度更新
+            // EGT: 燃焼時のみ上昇
             float targetEGT = engineOn && !meltdown
                 ? TSFEUtil.ClampedRemap(N1, idleN1, takeOffN1, idleEGT, takeOffEGT)
-                : (fire ? fireEGT : 0f);
+                : (fire ? fireEGT : ambientTemp);
             EGT = Mathf.Lerp(EGT, targetEGT, egtResponse * dt);
 
-            float targetECT = TSFEUtil.ClampedRemap(N1, idleN1, referenceN1, idleECT, continuousECT);
-            if (fire) targetECT = fireECT;
+            // ECT: N2回転による圧縮熱・摩擦熱で上昇
+            float targetECT = ambientTemp;
+            if (fire)
+            {
+                targetECT = fireECT;
+            }
+            else if (N2 > 0f && !meltdown)
+            {
+                // N2回転中はECT上昇 (Starter時: 約50°C、アイドル以上: idleECT～)
+                float n2Norm = Mathf.Clamp01(N2 / idleN2);
+                if (engineOn)
+                {
+                    // 燃焼中: N1に基づく温度
+                    targetECT = TSFEUtil.ClampedRemap(N1, idleN1, referenceN1, idleECT, continuousECT);
+                }
+                else
+                {
+                    // Starter時: 圧縮熱のみ (ambient + 35°C程度)
+                    targetECT = ambientTemp + 35f * n2Norm;
+                }
+            }
             float ectResp = ECT > targetECT ? ectOverheatResponse : ectResponse;
             ECT = Mathf.Lerp(ECT, targetECT, ectResp * dt);
 
@@ -213,15 +495,55 @@ namespace TSFE.SFEXT
             reverserPosition = Mathf.MoveTowards(reverserPosition, revTarget, revResp * dt);
 
             // 推力計算
-            float n1Norm = Mathf.Clamp01((N1 - idleN1) / (referenceN1 - idleN1));
-            float thrust = maxThrust * Mathf.Pow(n1Norm, thrustCurve);
+            // N1が0～idleN1: 0～idleThrustRatio、idleN1～takeOffN1: idleThrustRatio～100%
+            float n1Norm = Mathf.Clamp01(N1 / takeOffN1);
+            float thrustRatio = 0f;
+
+            // エンジン停止中は推力0（安全チェック）
+            if (!engineOn || N1 < 0.01f)
+            {
+                thrustRatio = 0f;
+            }
+            else if (N1 < idleN1)
+            {
+                // 0～idleN1の範囲: 線形に0～idleThrustRatioまで上昇
+                thrustRatio = idleThrustRatio * Mathf.Clamp01(N1 / idleN1);
+            }
+            else
+            {
+                // idleN1～takeOffN1の範囲: idleThrustRatio～100%まで曲線的に上昇
+                float t = Mathf.Clamp01((N1 - idleN1) / (takeOffN1 - idleN1));
+                thrustRatio = Mathf.Lerp(idleThrustRatio, 1f, Mathf.Pow(t, thrustCurve));
+            }
+            float thrust = maxThrust * thrustRatio;
+
+            // アフターバーナー適用
+            if (hasAfterburner && afterburnerLevel > 0.01f)
+            {
+                thrust *= Mathf.Lerp(1f, afterburnerThrustMultiplier, afterburnerLevel);
+            }
+
             if (reverserPosition > 0f) thrust *= -(reverserRatio * reverserPosition);
 
-            // 推力適用
-            if (SAVControl != null)
+            // 推力適用 (ニュートンをm/s²に変換してSaccに適用)
+            if (SAVControl != null && vehicleMass > 0f)
             {
+                // ニュートン (N) を加速度 (m/s²) に変換
+                // Force (N) = mass (kg) × acceleration (m/s²)
+                // acceleration = Force / mass
+                float thrustAcceleration = thrust / vehicleMass;
+                float appliedAcceleration = appliedThrust / vehicleMass;
+
                 float t = (float)SAVControl.GetProgramVariable("ThrottleStrength");
-                SAVControl.SetProgramVariable("ThrottleStrength", t - appliedThrust + thrust);
+                float newThrottle = t - appliedAcceleration + thrustAcceleration;
+                SAVControl.SetProgramVariable("ThrottleStrength", newThrottle);
+
+                // デバッグログ（初回のみ、または異常値検出時）
+                if (Time.frameCount < 300 || Mathf.Abs(thrust) > maxThrust * 2f)
+                {
+                    Debug.Log($"[{gameObject.name}] Frame:{Time.frameCount} | N1:{N1:F0} N2:{N2:F0} | EngineOn:{engineOn} | Thrust:{thrust:F0}N ({thrustAcceleration:F2}m/s²) | Applied:{appliedThrust:F0}N ({appliedAcceleration:F2}m/s²) | Total ThrottleStrength:{newThrottle:F2}m/s²");
+                }
+
                 appliedThrust = thrust;
             }
         }
@@ -229,6 +551,54 @@ namespace TSFE.SFEXT
         private void UpdateDamage(float dt)
         {
             if (meltdown) return;
+
+            // 高出力連続運転制限チェック
+            if (enableContinuousPowerLimit && engineOn)
+            {
+                // 現在の推力比率を計算
+                float thrustRatio = 0f;
+                if (N1 >= idleN1)
+                {
+                    float t = (N1 - idleN1) / (takeOffN1 - idleN1);
+                    thrustRatio = Mathf.Lerp(idleThrustRatio, 1f, Mathf.Pow(t, thrustCurve));
+                }
+
+                // 制限閾値以上の出力か
+                if (thrustRatio >= continuousPowerThreshold)
+                {
+                    continuousPowerTime += dt;
+
+                    // 許容時間を超えた場合、故障判定開始
+                    if (continuousPowerTime > continuousPowerTimeLimit)
+                    {
+                        float excessTime = continuousPowerTime - continuousPowerTimeLimit;
+                        // 超過時間に応じてダメージ倍率を計算（1分超過で2倍、2分超過で3倍...）
+                        float damageMultiplier = 1f + excessTime / 60f;
+
+                        if (TSFEUtil.CheckMTBFScaled(dt, mtbFireAtContinuousPower, damageMultiplier))
+                        {
+                            fire = true;
+                            OnFireStart();
+                        }
+                    }
+                }
+                else
+                {
+                    // 出力が閾値未満に下がったらタイマーリセット
+                    continuousPowerTime = 0f;
+                }
+            }
+
+            // Afterburner logic
+            if (hasAfterburner && engineOn && !reversing)
+            {
+                float targetAB = (throttleInput > afterburnerThreshold) ? 1f : 0f;
+                afterburnerLevel = Mathf.MoveTowards(afterburnerLevel, targetAB, afterburnerResponse * Mathf.Abs(targetAB - afterburnerLevel) * dt);
+            }
+            else
+            {
+                afterburnerLevel = Mathf.MoveTowards(afterburnerLevel, 0f, afterburnerResponse * afterburnerLevel * dt);
+            }
 
             if (!fire)
             {
@@ -238,7 +608,7 @@ namespace TSFE.SFEXT
                     if (TSFEUtil.CheckMTBFScaled(dt, mtbFireAtOverheat, damage))
                     {
                         fire = true;
-                        if (fireSound) fireSound.Play();
+                        OnFireStart();
                     }
                 }
                 else if (ECT >= continuousECT)
@@ -246,7 +616,7 @@ namespace TSFE.SFEXT
                     if (TSFEUtil.CheckMTBF(dt, mtbFireAtContinuous))
                     {
                         fire = true;
-                        if (fireSound) fireSound.Play();
+                        OnFireStart();
                     }
                 }
             }
@@ -266,6 +636,10 @@ namespace TSFE.SFEXT
                 vehicleAnimator.SetFloat(n2ParameterName, N2 / takeOffN2);
                 vehicleAnimator.SetFloat(reverserParameterName, reverserPosition);
                 vehicleAnimator.SetBool(fireParameterName, fire);
+                if (hasAfterburner)
+                {
+                    vehicleAnimator.SetFloat(afterburnerParameterName, afterburnerLevel);
+                }
             }
         }
 
@@ -274,29 +648,247 @@ namespace TSFE.SFEXT
             float n1Norm = N1 / takeOffN1;
             float n2Norm = N2 / takeOffN2;
 
+            // idleSound: N2が動いている間のみ再生
             if (idleSound)
             {
-                idleSound.volume = idleVol * Mathf.Clamp01(n2Norm * 2f);
-                idleSound.pitch = idlePit * (0.5f + n2Norm * 0.5f);
+                bool shouldPlay = n2Norm > 0.01f; // N2が1%以上
+
+                if (shouldPlay)
+                {
+                    // 有効化（Volume0で）
+                    if (!idleSound.gameObject.activeInHierarchy)
+                    {
+                        idleSound.volume = 0f;
+                        idleSound.gameObject.SetActive(true);
+                        idleSound.Play();
+                    }
+
+                    idleSound.volume = idleVol * Mathf.Clamp01(n2Norm * 2f) * idleVolumeMultiplier;
+                    idleSound.pitch = idlePit * (0.5f + n2Norm * 0.5f);
+                }
+                else
+                {
+                    // 無効化
+                    if (idleSound.gameObject.activeInHierarchy)
+                    {
+                        idleSound.volume = 0f;
+                        idleSound.Stop();
+                        idleSound.gameObject.SetActive(false);
+                    }
+                }
             }
 
+            // insideSound: N2が動いている間のみ再生
             if (insideSound)
             {
-                insideSound.volume = insideVol * n2Norm;
-                insideSound.pitch = insidePit * (0.8f + n2Norm * 0.2f);
+                bool shouldPlay = n2Norm > 0.01f;
+
+                if (shouldPlay)
+                {
+                    // 有効化（Volume0で）
+                    if (!insideSound.gameObject.activeInHierarchy)
+                    {
+                        insideSound.volume = 0f;
+                        insideSound.gameObject.SetActive(true);
+                        insideSound.Play();
+                    }
+
+                    insideSound.volume = insideVol * n2Norm * insideVolumeMultiplier;
+                    insideSound.pitch = insidePit * (0.8f + n2Norm * 0.2f);
+                }
+                else
+                {
+                    // 無効化
+                    if (insideSound.gameObject.activeInHierarchy)
+                    {
+                        insideSound.volume = 0f;
+                        insideSound.Stop();
+                        insideSound.gameObject.SetActive(false);
+                    }
+                }
             }
 
+            // thrustSound: N1が動いている間のみ再生
             if (thrustSound)
             {
-                thrustSound.volume = thrustVol * n1Norm;
-                thrustSound.pitch = thrustPit * (0.7f + n1Norm * 0.3f);
+                bool shouldPlay = n1Norm > 0.01f; // N1が1%以上
+
+                if (shouldPlay)
+                {
+                    // 有効化（Volume0で）
+                    if (!thrustSound.gameObject.activeInHierarchy)
+                    {
+                        thrustSound.volume = 0f;
+                        thrustSound.gameObject.SetActive(true);
+                        thrustSound.Play();
+                    }
+
+                    thrustSound.volume = thrustVol * n1Norm * thrustVolumeMultiplier;
+                    thrustSound.pitch = thrustPit * (0.7f + n1Norm * 0.3f);
+                }
+                else
+                {
+                    // 無効化
+                    if (thrustSound.gameObject.activeInHierarchy)
+                    {
+                        thrustSound.volume = 0f;
+                        thrustSound.Stop();
+                        thrustSound.gameObject.SetActive(false);
+                    }
+                }
             }
 
+            // takeoffSound: N1が80%以上でのみ再生
             if (takeoffSound)
             {
-                takeoffSound.volume = takeoffVol * Mathf.Max(0f, (n1Norm - 0.8f) * 5f);
-                takeoffSound.pitch = takeoffPit * (0.9f + n1Norm * 0.1f);
+                bool shouldPlay = n1Norm > 0.8f; // N1が80%以上
+
+                if (shouldPlay)
+                {
+                    // 有効化（Volume0で）
+                    if (!takeoffSound.gameObject.activeInHierarchy)
+                    {
+                        takeoffSound.volume = 0f;
+                        takeoffSound.gameObject.SetActive(true);
+                        takeoffSound.Play();
+                    }
+
+                    // 音量: 80%以上で0→1に上昇
+                    takeoffSound.volume = takeoffVol * Mathf.Max(0f, (n1Norm - 0.8f) * 5f) * takeoffVolumeMultiplier;
+                    // ピッチ: 80%～100%で0.8→1.1に変化（N1に比例）
+                    takeoffSound.pitch = takeoffPit * (0.8f + n1Norm * 0.3f);
+                }
+                else
+                {
+                    // 無効化
+                    if (takeoffSound.gameObject.activeInHierarchy)
+                    {
+                        takeoffSound.volume = 0f;
+                        takeoffSound.Stop();
+                        takeoffSound.gameObject.SetActive(false);
+                    }
+                }
             }
+
+            // 火災音の制御
+            if (fireBurnSound)
+            {
+                if (fire)
+                {
+                    // 有効化
+                    if (!fireBurnSound.gameObject.activeInHierarchy)
+                    {
+                        fireBurnSound.volume = 1f; // 火災音は常にフルボリューム
+                        fireBurnSound.gameObject.SetActive(true);
+                        fireBurnSound.Play();
+                    }
+                }
+                else
+                {
+                    // 無効化
+                    if (fireBurnSound.gameObject.activeInHierarchy)
+                    {
+                        fireBurnSound.Stop();
+                        fireBurnSound.gameObject.SetActive(false);
+                    }
+                }
+            }
+
+            if (fireAlarmSound)
+            {
+                // 火災警報音: 火災発生中かつミュートされていない場合のみ再生
+                if (fire && !fireAlarmMuted)
+                {
+                    // 有効化
+                    if (!fireAlarmSound.gameObject.activeInHierarchy)
+                    {
+                        fireAlarmSound.volume = 1f; // 警報音は常にフルボリューム
+                        fireAlarmSound.gameObject.SetActive(true);
+                        fireAlarmSound.Play();
+                    }
+                }
+                else
+                {
+                    // 無効化
+                    if (fireAlarmSound.gameObject.activeInHierarchy)
+                    {
+                        fireAlarmSound.Stop();
+                        fireAlarmSound.gameObject.SetActive(false);
+                    }
+                }
+            }
+
+            // reverserSound: リバーサー展開中（reverserPosition > 0.1）かつN1が動いている時のみ再生
+            if (reverserSound)
+            {
+                // リバーサー展開度 (0-1) とN1の両方を考慮
+                bool shouldPlay = reverserPosition > 0.1f && n1Norm > 0.1f;
+
+                if (shouldPlay)
+                {
+                    // 有効化（Volume0で）
+                    if (!reverserSound.gameObject.activeInHierarchy)
+                    {
+                        reverserSound.volume = 0f;
+                        reverserSound.gameObject.SetActive(true);
+                        reverserSound.Play();
+                    }
+
+                    // 音量: reverserPositionとN1の最大値を使用（より大きい音）
+                    float volFactor = Mathf.Max(reverserPosition, n1Norm);
+                    reverserSound.volume = reverserVol * volFactor * reverserVolumeMultiplier;
+                    // ピッチ: N1に比例（0.7～1.0）
+                    reverserSound.pitch = reverserPit * (0.7f + n1Norm * 0.3f);
+                }
+                else
+                {
+                    // 無効化
+                    if (reverserSound.gameObject.activeInHierarchy)
+                    {
+                        reverserSound.volume = 0f;
+                        reverserSound.Stop();
+                        reverserSound.gameObject.SetActive(false);
+                    }
+                }
+            }
+
+            // afterburnerSound: アフターバーナー作動時
+            if (afterburnerSound)
+            {
+                bool shouldPlay = hasAfterburner && afterburnerLevel > 0.01f;
+
+                if (shouldPlay)
+                {
+                    // 有効化（Volume0で）
+                    if (!afterburnerSound.gameObject.activeInHierarchy)
+                    {
+                        afterburnerSound.volume = 0f;
+                        afterburnerSound.gameObject.SetActive(true);
+                        afterburnerSound.Play();
+                    }
+
+                    // 音量: afterburnerLevelに比例
+                    afterburnerSound.volume = afterburnerVol * afterburnerLevel * afterburnerVolumeMultiplier;
+                    // ピッチ: afterburnerLevelに比例（0.9～1.1）
+                    afterburnerSound.pitch = afterburnerPit * (0.9f + afterburnerLevel * 0.2f);
+                }
+                else
+                {
+                    // 無効化
+                    if (afterburnerSound.gameObject.activeInHierarchy)
+                    {
+                        afterburnerSound.volume = 0f;
+                        afterburnerSound.Stop();
+                        afterburnerSound.gameObject.SetActive(false);
+                    }
+                }
+            }
+        }
+
+        private void OnFireStart()
+        {
+            // 火災発生時の処理（音は UpdateSound() で自動的に再生される）
+            Debug.Log("[Engine] Fire detected!");
         }
 
         private void UpdateEffects()
@@ -345,6 +937,24 @@ namespace TSFE.SFEXT
             }
         }
 
+        private bool CheckStarterPowerAvailable()
+        {
+            // starterPowerSourceがnull → 単独始動可能（テスト用、または自力始動エンジン）
+            if (starterPowerSource == null) return true;
+
+            // starterPowerSourceが有効 → 電源/ブリード供給あり
+            return starterPowerSource.activeInHierarchy;
+        }
+
+        private void UpdateEngineOnIndicator()
+        {
+            if (engineOnIndicator != null)
+            {
+                engineOnIndicator.SetActive(engineOn);
+            }
+        }
+
         public bool EngineOn => engineOn;
+        public bool StarterPowerAvailable => CheckStarterPowerAvailable();
     }
 }

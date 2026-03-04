@@ -111,7 +111,7 @@ namespace TSFE.Utility
         private bool CheckElectric()
         {
             // 電力バスチェック
-            if (powerBus == null || !powerBus.Powered) return false;
+            if (powerBus == null || !powerBus.BusPowered) return false;
 
             // スイッチチェック（設定されていない場合は常時ON）
             if (pumpSwitch != null && !pumpSwitch.activeInHierarchy) return false;
