@@ -103,6 +103,12 @@ namespace TSFE.SFEXT
         [Range(0.9f, 1.0f)]
         public float starterCutoffThreshold = 0.95f;
 
+        [Header("質量設定")]
+        [Tooltip("推力計算用の質量を手動設定（true）か、Rigidbody.massから自動取得（false）するか")]
+        public bool useManualMass = false;
+        [Tooltip("エンジン推力計算用の質量 (kg) - 現実的な機体重量。物理質量（Rigidbody.mass）はWheelCollider対策で別途軽量化可能")]
+        public float engineCalculationMass = 19000f;
+
         [Header("推力適用設定")]
         [Tooltip("動的ThrottleStrength調整を有効化 - エンジン推力計算に基づいてThrottleStrengthを更新")]
         public bool enableDynamicThrust = true;
@@ -156,6 +162,16 @@ namespace TSFE.SFEXT
         [Tooltip("火災警報音（2D UI音、コックピット内）")]
         public AudioSource fireAlarmSound;
 
+        [Header("ドップラー制御")]
+        [Tooltip("ドップラーコライダーGameObject - この範囲内ではSpatialBlend=0（2D音）、範囲外では1（3D音）")]
+        public GameObject dopplerCollider;
+        [Tooltip("範囲外（地上から聞く）でのSpatialBlend")]
+        [Range(0f, 1f)]
+        public float spatialBlendOutside = 1.0f;
+        [Tooltip("範囲内（コックピット内）でのSpatialBlend")]
+        [Range(0f, 1f)]
+        public float spatialBlendInside = 0.0f;
+
         [Header("消火システム")]
         [Tooltip("消火剤投入時の火災消火成功率 (0-1)")]
         [Range(0f, 1f)]
@@ -199,6 +215,7 @@ namespace TSFE.SFEXT
         private float continuousPowerTime; // 高出力連続運転時間
         private float afterburnerLevel; // アフターバーナーレベル (0-1)
         private float vehicleMass; // 機体質量 (kg)
+        private bool localPlayerInDopplerZone; // ローカルプレイヤーがドップラーコライダー内にいるか
 
         void Start()
         {
@@ -213,8 +230,12 @@ namespace TSFE.SFEXT
         {
             isOwner = EntityControl != null ? EntityControl.IsOwner : true;
 
-            // 機体質量を取得
-            if (SAVControl != null)
+            // 推力計算用の質量を決定
+            if (useManualMass && engineCalculationMass > 0f)
+            {
+                vehicleMass = engineCalculationMass;
+            }
+            else if (SAVControl != null)
             {
                 var rigidbody = (Rigidbody)SAVControl.GetProgramVariable("VehicleRigidbody");
                 if (rigidbody != null)
@@ -223,13 +244,14 @@ namespace TSFE.SFEXT
                 }
                 else
                 {
-                    vehicleMass = 19000f;
+                    vehicleMass = engineCalculationMass;
                 }
             }
             else
             {
-                vehicleMass = 19000f;
+                vehicleMass = engineCalculationMass;
             }
+
 
             // AudioSource初期化（すべてループ、初期無効）
             if (idleSound) { idleVol = idleSound.volume; idlePit = idleSound.pitch; idleSound.loop = true; idleSound.volume = 0f; idleSound.gameObject.SetActive(false); }
@@ -242,6 +264,10 @@ namespace TSFE.SFEXT
             // 火災音初期化（初期無効）
             if (fireBurnSound) { fireBurnSound.loop = true; fireBurnSound.volume = 0f; fireBurnSound.gameObject.SetActive(false); }
             if (fireAlarmSound) { fireAlarmSound.loop = true; fireAlarmSound.volume = 0f; fireAlarmSound.gameObject.SetActive(false); }
+
+            // ドップラーコライダー初期化（初期状態: 範囲外）
+            localPlayerInDopplerZone = false;
+            SetSpatialBlend(spatialBlendOutside);
 
             if (jetBlastParticle)
             {
@@ -499,11 +525,6 @@ namespace TSFE.SFEXT
                 float abMultiplier = Mathf.Lerp(1f, afterburnerThrustMultiplier, afterburnerLevel);
                 thrust *= abMultiplier;
 
-                // デバッグ: アフターバーナー適用時のみログ出力
-                if (Time.frameCount % 60 == 0 && afterburnerLevel > 0.5f)
-                {
-                    Debug.Log($"  AB Detail: baseThrust={baseThrust:F0}N → finalThrust={thrust:F0}N (mult={abMultiplier:F3})");
-                }
             }
 
             if (reverserPosition > 0f) thrust *= -(reverserRatio * reverserPosition);
@@ -517,12 +538,10 @@ namespace TSFE.SFEXT
                 if (engineOn && !savEngineOn)
                 {
                     SAVControl.SetProgramVariable("_EngineOn", true);
-                    Debug.Log($"[{gameObject.name}] Setting SAV _EngineOn = true");
                 }
                 else if (!engineOn && savEngineOn)
                 {
                     SAVControl.SetProgramVariable("_EngineOn", false);
-                    Debug.Log($"[{gameObject.name}] Setting SAV _EngineOn = false");
                 }
 
                 // 動的ThrottleStrength調整
@@ -568,27 +587,9 @@ namespace TSFE.SFEXT
                         // Rigidbodyに直接トルクを適用 (ForceMode.Force = 連続的な力)
                         vehicleRb.AddTorque(torque, ForceMode.Force);
 
-                        // トルクデバッグ(60フレームごと)
-                        if (Time.frameCount % 60 == 0)
-                        {
-                            // 機体ローカル座標に変換して表示
-                            Vector3 localR = SAVControl.transform.InverseTransformDirection(rVector);
-                            Vector3 localTorque = SAVControl.transform.InverseTransformDirection(torque);
-                            Debug.Log($"  Torque: r={localR:F2} thrust={thrust:F0}N torque={localTorque:F1}Nm (Y={localTorque.y:F1} yaw)");
-                        }
                     }
                 }
 
-                // 推力デバッグログ（1秒ごと）
-                if (Time.frameCount % 60 == 0)
-                {
-                    float savEngineOutput = (float)SAVControl.GetProgramVariable("EngineOutput");
-                    float savThrottleInput = (float)SAVControl.GetProgramVariable("ThrottleInput");
-                    float savThrottleStrength = (float)SAVControl.GetProgramVariable("ThrottleStrength");
-                    Debug.Log($"[{gameObject.name}] N1:{N1:F0}/{takeOffN1:F0} N2:{N2:F0}/{takeOffN2:F0} | EngineOn:{engineOn} | Throttle:{throttleInput:F2}");
-                    Debug.Log($"  Thrust: {thrust:F0}N ({thrust/vehicleMass:F4}m/s²) | AB_Level:{afterburnerLevel:F3} AB_Mult:{afterburnerThrustMultiplier:F2}");
-                    Debug.Log($"  SAV: _EngineOn={savEngineOn} EngineOutput={savEngineOutput:F4} ThrottleInput={savThrottleInput:F4} ThrottleStrength={savThrottleStrength:F4}");
-                }
 
                 appliedThrust = thrust;
             }
@@ -929,6 +930,9 @@ namespace TSFE.SFEXT
                     }
                 }
             }
+
+            // ドップラーコライダーチェック
+            UpdateDopplerZone();
         }
 
         private void OnFireStart()
@@ -997,6 +1001,63 @@ namespace TSFE.SFEXT
             {
                 engineOnIndicator.SetActive(engineOn);
             }
+        }
+
+        /// <summary>
+        /// ドップラーコライダー範囲チェック（Update内で呼ばれる）
+        /// </summary>
+        private void UpdateDopplerZone()
+        {
+            if (dopplerCollider == null)
+            {
+                Debug.Log("[AdvancedEngine] dopplerCollider is null");
+                return;
+            }
+
+            VRCPlayerApi localPlayer = Networking.LocalPlayer;
+            if (localPlayer == null) return;
+
+            // プレイヤー位置を取得
+            Vector3 playerPos = localPlayer.GetPosition();
+
+            // コライダーのBoundsを取得
+            Collider col = dopplerCollider.GetComponent<Collider>();
+            if (col == null)
+            {
+                Debug.LogWarning("[AdvancedEngine] dopplerCollider has no Collider component");
+                return;
+            }
+
+            // プレイヤーがコライダー内にいるかチェック
+            bool isInside = col.bounds.Contains(playerPos);
+
+            // 状態が変化した場合のみSpatialBlendを更新
+            if (isInside != localPlayerInDopplerZone)
+            {
+                localPlayerInDopplerZone = isInside;
+                float blend = isInside ? spatialBlendInside : spatialBlendOutside;
+                Debug.Log($"[AdvancedEngine] Player zone changed: isInside={isInside}, spatialBlend={blend}");
+                SetSpatialBlend(blend);
+            }
+        }
+
+        /// <summary>
+        /// 全エンジンサウンドのSpatialBlendを設定
+        /// </summary>
+        private void SetSpatialBlend(float blend)
+        {
+            Debug.Log($"[AdvancedEngine] SetSpatialBlend: {blend}");
+            if (idleSound != null)
+            {
+                idleSound.spatialBlend = blend;
+                Debug.Log($"[AdvancedEngine] idleSound.spatialBlend = {idleSound.spatialBlend}");
+            }
+            if (insideSound != null) insideSound.spatialBlend = blend;
+            if (thrustSound != null) thrustSound.spatialBlend = blend;
+            if (takeoffSound != null) takeoffSound.spatialBlend = blend;
+            if (reverserSound != null) reverserSound.spatialBlend = blend;
+            if (afterburnerSound != null) afterburnerSound.spatialBlend = blend;
+            if (fireBurnSound != null) fireBurnSound.spatialBlend = blend;
         }
 
         public bool EngineOn => engineOn;

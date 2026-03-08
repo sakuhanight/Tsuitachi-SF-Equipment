@@ -64,20 +64,7 @@ namespace TSFE.Editor
 
             if (string.IsNullOrEmpty(methodCaller.methodName))
             {
-                EditorGUILayout.HelpBox("Method Name を設定してください（例: StartSequence）", MessageType.Error);
-            }
-
-            // 実行タイミングのチェック
-            bool hasExecutionTiming = methodCaller.executeOnSelected ||
-                                     methodCaller.executeOnDeselected ||
-                                     methodCaller.executeOnLeftDial ||
-                                     methodCaller.executeOnRightDial ||
-                                     methodCaller.executeOnTriggerPress ||
-                                     methodCaller.executeOnKeyDown;
-
-            if (!hasExecutionTiming)
-            {
-                EditorGUILayout.HelpBox("少なくとも1つの実行タイミングを有効化してください", MessageType.Warning);
+                EditorGUILayout.HelpBox("Method Name を設定してください（例: Toggle）", MessageType.Error);
             }
 
             EditorGUILayout.EndVertical();
@@ -88,16 +75,15 @@ namespace TSFE.Editor
             EditorGUILayout.BeginVertical("box");
             EditorGUILayout.LabelField("使用例", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
-                "このDFUNCコンポーネントはVRダイヤルとキーボード入力に対応します:\n\n" +
-                "1. VRダイヤル操作\n" +
-                "   - ダイヤル選択時 (executeOnSelected)\n" +
-                "   - ダイヤル選択解除時 (executeOnDeselected)\n" +
-                "   - 左ダイヤル回転時 (executeOnLeftDial)\n" +
-                "   - 右ダイヤル回転時 (executeOnRightDial)\n" +
-                "   - VRトリガー押下時 (executeOnTriggerPress)\n\n" +
-                "2. キーボード入力\n" +
-                "   - executeOnKeyDown を有効化\n" +
-                "   - keyCode を設定 (例: KeyCode.G)\n\n" +
+                "このDFUNCコンポーネントはシンプルなメソッド呼び出しに対応します:\n\n" +
+                "【VR操作】\n" +
+                "  1. DFUNCで選択（スティック上下）\n" +
+                "  2. 該当する側のトリガーを引く → メソッド実行\n" +
+                "     - 左ダイヤル配置 → 左トリガー\n" +
+                "     - 右ダイヤル配置 → 右トリガー\n\n" +
+                "【デスクトップ操作】\n" +
+                "  - keyCode で設定したキーを押す → メソッド実行\n" +
+                "    （デフォルト: G キー）\n\n" +
                 "対象コンポーネントの公開メソッド（引数なし）を呼び出します。",
                 MessageType.Info);
             EditorGUILayout.EndVertical();

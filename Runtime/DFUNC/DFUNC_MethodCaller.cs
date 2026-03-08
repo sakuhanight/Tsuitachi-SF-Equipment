@@ -1,5 +1,7 @@
 using UdonSharp;
 using UnityEngine;
+using VRC.SDKBase;
+using SaccFlightAndVehicles;
 
 namespace TSFE.DFUNC
 {
@@ -19,38 +21,16 @@ namespace TSFE.DFUNC
         [Tooltip("呼び出すメソッド名（引数なしのpublicメソッド）")]
         public string methodName;
 
-        [Header("実行タイミング")]
-        [Tooltip("ダイヤル選択時に実行（DFUNC_Selected）")]
-        public bool executeOnSelected = false;
-
-        [Tooltip("ダイヤル選択解除時に実行（DFUNC_Deselected）")]
-        public bool executeOnDeselected = false;
-
-        [Tooltip("左ダイヤル回転時に実行（DFUNC_LeftDial）")]
-        public bool executeOnLeftDial = false;
-
-        [Tooltip("右ダイヤル回転時に実行（DFUNC_RightDial）")]
-        public bool executeOnRightDial = false;
-
-        [Tooltip("VRトリガー押下時に実行（入力値 > 0.75）")]
-        public bool executeOnTriggerPress = false;
-
-        [Header("キー入力設定")]
-        [Tooltip("キーボード入力で実行")]
-        public bool executeOnKeyDown = false;
-
-        [Tooltip("実行するKeyCode")]
-        public KeyCode keyCode = KeyCode.None;
+        [Header("入力設定")]
+        [Tooltip("デスクトップ用キーコード")]
+        public KeyCode keyCode = KeyCode.G;
 
         [Header("表示設定")]
-        [Tooltip("選択中に有効化するGameObject（単一）")]
-        public GameObject Dial_Funcon;
-
-        [Tooltip("選択中に有効化するGameObject（配列）")]
-        public GameObject[] Dial_Funcon_Array;
+        [Tooltip("トグル時に有効/無効を切り替えるGameObject配列")]
+        public GameObject[] Dial_Funcon;
 
         // SaccFlightAndVehicles自動注入フィールド
-        [System.NonSerialized] public UdonSharpBehaviour EntityControl;
+        [System.NonSerialized] public SaccEntity EntityControl;
         [System.NonSerialized] public int DialPosition = -999;
         [System.NonSerialized] public bool LeftDial = false;
 
@@ -58,18 +38,86 @@ namespace TSFE.DFUNC
         private bool isPilot = false;
         private bool prevTriggerPressed = false;
 
+        public void SFEXT_L_EntityStart()
+        {
+            VRCPlayerApi localPlayer = Networking.LocalPlayer;
+            if (localPlayer != null && !EntityControl.IsOwner)
+            {
+                gameObject.SetActive(false);
+            }
+            else
+            {
+                gameObject.SetActive(true);
+            }
+
+            Debug.Log($"[DFUNC_MethodCaller] SFEXT_L_EntityStart: IsOwner={EntityControl.IsOwner}, active={gameObject.activeInHierarchy}");
+            // Funconの初期状態を非表示にする
+            if (Dial_Funcon != null)
+            {
+                for (int i = 0; i < Dial_Funcon.Length; i++)
+                {
+                    if (Dial_Funcon[i] != null)
+                    {
+                        Dial_Funcon[i].SetActive(false);
+                    }
+                }
+            }
+        }
+
         void Start()
         {
-            Debug.Log($"[DFUNC_MethodCaller] Start called on {gameObject.name}, isPilot={isPilot}");
-            // Funconの初期状態を非表示にする
-            TSFE.Utility.TSFEUtil.SetDialFuncon(Dial_Funcon, Dial_Funcon_Array, false);
+            Debug.Log($"[DFUNC_MethodCaller] Start: isPilot={isPilot}, EntityControl={(EntityControl != null ? "OK" : "NULL")}");
+        }
 
-            // パイロットがいない場合のみGameObjectを無効化
-            // （SFEXT_O_PilotEnterでisPilotがtrueになった後は無効化しない）
-            if (!isPilot)
+        void Update()
+        {
+            // 常時デバッグ（60フレームごと）
+            if (Time.frameCount % 60 == 0)
             {
-                Debug.Log($"[DFUNC_MethodCaller] Deactivating GameObject (no pilot)");
-                gameObject.SetActive(false);
+                Debug.Log($"[DFUNC_MethodCaller] Update: isPilot={isPilot}, isSelected={isSelected}, LeftDial={LeftDial}");
+            }
+
+            if (isPilot)
+            {
+                // VRトリガー入力チェック（選択中のみ、該当する側のトリガーのみ）
+                if (isSelected)
+                {
+                    float trigger;
+                    if (LeftDial)
+                    {
+                        trigger = Input.GetAxisRaw("Oculus_CrossPlatform_PrimaryIndexTrigger");
+                    }
+                    else
+                    {
+                        trigger = Input.GetAxisRaw("Oculus_CrossPlatform_SecondaryIndexTrigger");
+                    }
+
+                    // デバッグ: トリガー値表示
+                    if (Time.frameCount % 60 == 0)
+                    {
+                        Debug.Log($"[DFUNC_MethodCaller] Trigger value: {trigger:F3}");
+                    }
+
+                    // トリガー押下判定（0.75以上で押下）
+                    bool triggerPressed = trigger > 0.75f;
+                    if (triggerPressed && !prevTriggerPressed)
+                    {
+                        Debug.Log($"[DFUNC_MethodCaller] Trigger pressed! Executing method.");
+                        ExecuteMethod();
+                    }
+                    prevTriggerPressed = triggerPressed;
+                }
+                else
+                {
+                    prevTriggerPressed = false;
+                }
+
+                // キー入力チェック
+                if (keyCode != KeyCode.None && Input.GetKeyDown(keyCode))
+                {
+                    Debug.Log($"[DFUNC_MethodCaller] Key pressed: {keyCode}");
+                    ExecuteMethod();
+                }
             }
         }
 
@@ -77,28 +125,28 @@ namespace TSFE.DFUNC
         // SaccFlightAndVehicles イベント
         // ========================================
 
-        public void SFEXT_G_PilotEnter()
-        {
-            Debug.Log($"[DFUNC_MethodCaller] SFEXT_G_PilotEnter called on {gameObject.name}");
-            gameObject.SetActive(true);
-        }
-
-        public void SFEXT_G_PilotExit()
-        {
-            Debug.Log($"[DFUNC_MethodCaller] SFEXT_G_PilotExit called on {gameObject.name}");
-            gameObject.SetActive(false);
-        }
-
         public void SFEXT_O_PilotEnter()
         {
-            Debug.Log($"[DFUNC_MethodCaller] SFEXT_O_PilotEnter called, isPilot = true");
             isPilot = true;
+            Debug.Log($"[DFUNC_MethodCaller] SFEXT_O_PilotEnter: isPilot={isPilot}");
         }
 
         public void SFEXT_O_PilotExit()
         {
-            Debug.Log($"[DFUNC_MethodCaller] SFEXT_O_PilotExit called, isPilot = false");
             isPilot = false;
+            Debug.Log($"[DFUNC_MethodCaller] SFEXT_O_PilotExit: isPilot={isPilot}");
+        }
+
+        public void SFEXT_O_TakeOwnership()
+        {
+            gameObject.SetActive(true);
+            Debug.Log($"[DFUNC_MethodCaller] SFEXT_O_TakeOwnership: active={gameObject.activeInHierarchy}");
+        }
+
+        public void SFEXT_O_LoseOwnership()
+        {
+            gameObject.SetActive(false);
+            Debug.Log($"[DFUNC_MethodCaller] SFEXT_O_LoseOwnership: active={gameObject.activeInHierarchy}");
         }
 
         // ========================================
@@ -107,65 +155,24 @@ namespace TSFE.DFUNC
 
         public void DFUNC_Selected()
         {
+            Debug.Log($"[DFUNC_MethodCaller] DFUNC_Selected called");
             isSelected = true;
-            TSFE.Utility.TSFEUtil.SetDialFuncon(Dial_Funcon, Dial_Funcon_Array, true);
-
-            if (executeOnSelected)
-            {
-                ExecuteMethod();
-            }
         }
 
         public void DFUNC_Deselected()
         {
+            Debug.Log($"[DFUNC_MethodCaller] DFUNC_Deselected called");
             isSelected = false;
-            TSFE.Utility.TSFEUtil.SetDialFuncon(Dial_Funcon, Dial_Funcon_Array, false);
-
-            if (executeOnDeselected)
-            {
-                ExecuteMethod();
-            }
         }
 
         public void DFUNC_LeftDial()
         {
-            if (executeOnLeftDial)
-            {
-                ExecuteMethod();
-            }
+            // 標準DFUNCでは使用しない（Updateでトリガー監視）
         }
 
         public void DFUNC_RightDial()
         {
-            if (executeOnRightDial)
-            {
-                ExecuteMethod();
-            }
-        }
-
-        void Update()
-        {
-            // VRトリガー入力チェック（選択中のみ）
-            if (isSelected && executeOnTriggerPress)
-            {
-                bool triggerPressed = TSFE.Utility.TSFEUtil.IsTriggerPressed(LeftDial);
-                if (triggerPressed && !prevTriggerPressed)
-                {
-                    Debug.Log("[DFUNC_MethodCaller] VR Trigger pressed");
-                    ExecuteMethod();
-                }
-                prevTriggerPressed = triggerPressed;
-            }
-
-            // キー入力チェック（パイロット時のみ）
-            if (isPilot && executeOnKeyDown && keyCode != KeyCode.None)
-            {
-                if (Input.GetKeyDown(keyCode))
-                {
-                    Debug.Log($"[DFUNC_MethodCaller] Key pressed: {keyCode}");
-                    ExecuteMethod();
-                }
-            }
+            // 標準DFUNCでは使用しない（Updateでトリガー監視）
         }
 
         /// <summary>
@@ -195,6 +202,26 @@ namespace TSFE.DFUNC
 
             Debug.Log($"[DFUNC_MethodCaller] Calling {targetComponent.GetType().Name}.{methodName}()");
             targetComponent.SendCustomEvent(methodName);
+
+            // メソッド実行後、FUNCONの状態を切り替え
+            ToggleFunconDisplay();
+        }
+
+        /// <summary>
+        /// Funcon表示を切り替え（トグル）
+        /// </summary>
+        private void ToggleFunconDisplay()
+        {
+            if (Dial_Funcon != null)
+            {
+                for (int i = 0; i < Dial_Funcon.Length; i++)
+                {
+                    if (Dial_Funcon[i] != null)
+                    {
+                        Dial_Funcon[i].SetActive(!Dial_Funcon[i].activeSelf);
+                    }
+                }
+            }
         }
     }
 }

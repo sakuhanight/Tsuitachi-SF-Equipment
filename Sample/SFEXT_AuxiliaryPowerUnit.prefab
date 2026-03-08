@@ -52,8 +52,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 5
+  MaxDistance: 300
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -180,8 +180,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 5
+  MaxDistance: 300
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -308,8 +308,8 @@ AudioSource:
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
-  MaxDistance: 500
+  MinDistance: 5
+  MaxDistance: 300
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -489,6 +489,7 @@ MonoBehaviour:
   loopVolumeMultiplier: 0.6
   stopVolumeMultiplier: 0.6
   exhaustEffect: {fileID: 0}
+  powerSource: {fileID: 0}
   apuStartedIndicator: {fileID: 7113650378941433460}
 --- !u!114 &286660676585838507
 MonoBehaviour:
