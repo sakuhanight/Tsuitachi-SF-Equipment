@@ -9,23 +9,26 @@ namespace TSFE.DFUNC
     [UdonBehaviourSyncMode(BehaviourSyncMode.Continuous)]
     public class DFUNC_ElevatorTrim : UdonSharpBehaviour
     {
-        public float controllerSensitivity = 0.5f;
+        [Header("Inputs")]
+        [Tooltip("VRでトリガー+前後操作時の移動検出閾値（メートル）")]
+        public float vrInputThreshold = 0.05f;
+        public Vector3 vrInputAxis = Vector3.forward;
         public KeyCode desktopUp = KeyCode.U;
         public KeyCode desktopDown = KeyCode.Y;
-        public float desktopStep = 0.02f;
+        public float trimStep = 0.02f;
+
+        [Header("Trim Settings")]
         public float trimStrengthMultiplier = 1;
         public float trimStrengthCurve = 1;
-        public string animatorParameterName = "elevtrim";
-        public Vector3 vrInputAxis = Vector3.forward;
         public float trimBias = 0;
+
+        [Header("Animator")]
+        public string animatorParameterName = "elevtrim";
 
         [Header("Haptics")]
         [Range(0, 1)] public float hapticDuration = 0.2f;
         [Range(0, 1)] public float hapticAmplitude = 0.5f;
         [Range(0, 1)] public float hapticFrequency = 0.1f;
-
-        [Header("Debug")]
-        public Transform debugControllerTransform;
 
         public UdonSharpBehaviour SAVControl;
         public GameObject Dial_Funcon;
@@ -39,12 +42,10 @@ namespace TSFE.DFUNC
 
         private VRCPlayerApi.TrackingDataType trackingTarget;
         private Transform controlsRoot;
-        private Rigidbody vehicleRigidbody;
         private Animator vehicleAnimator;
-        private float trimStrength, rotMultiMaxSpeed;
-        private bool hasPilot, isPilot, isOwner, isSelected, isDirty, triggered, prevTriggered;
-        private Vector3 prevTrackingPosition;
-        private float sliderInput, prevTrim;
+        private bool hasPilot, isPilot, isOwner, isSelected, isDirty, prevTrigger;
+        private Vector3 trackingOrigin;
+        private float prevTrim;
 
         public void DFUNC_LeftDial()
         {
@@ -57,7 +58,7 @@ namespace TSFE.DFUNC
         public void DFUNC_Selected()
         {
             isSelected = true;
-            prevTriggered = false;
+            prevTrigger = false;
             // 非Ownerが選択した場合、Ownershipを取得
             if (!isOwner)
             {
@@ -72,12 +73,7 @@ namespace TSFE.DFUNC
             controlsRoot = (Transform)SAVControl.GetProgramVariable("ControlsRoot");
             if (!controlsRoot) controlsRoot = entity.transform;
 
-            rotMultiMaxSpeed = (float)SAVControl.GetProgramVariable("RotMultiMaxSpeed");
-            vehicleRigidbody = entity.GetComponent<Rigidbody>();
             vehicleAnimator = (Animator)SAVControl.GetProgramVariable("VehicleAnimator");
-
-            var pitchStrength = (float)SAVControl.GetProgramVariable("PitchStrength");
-            trimStrength = pitchStrength * trimStrengthMultiplier;
 
             ResetStatus();
         }
@@ -87,7 +83,7 @@ namespace TSFE.DFUNC
             isPilot = true;
             isOwner = true;
             isSelected = false;
-            prevTriggered = false;
+            prevTrigger = false;
         }
         public void SFEXT_O_PilotExit() { isPilot = false; }
         public void SFEXT_O_TakeOwnership() { isOwner = true; }
@@ -120,17 +116,6 @@ namespace TSFE.DFUNC
 
         private void Update()
         {
-            isDirty = false;
-
-            if (isPilot)
-            {
-                trim = Mathf.Clamp(trim + sliderInput, -1, 1);
-                if (!Mathf.Approximately(sliderInput, 0) && Time.frameCount % Mathf.Max(1, Mathf.FloorToInt(hapticDuration / Time.fixedDeltaTime)) == 0)
-                {
-                    TSFEUtil.PlayHaptics(LeftDial, hapticDuration, hapticAmplitude, hapticFrequency);
-                }
-            }
-
             var trimChanged = !Mathf.Approximately(trim, prevTrim);
             prevTrim = trim;
             if (trimChanged)
@@ -142,47 +127,61 @@ namespace TSFE.DFUNC
             if (!hasPilot && !isDirty) gameObject.SetActive(false);
         }
 
-        public override void PostLateUpdate()
+        private void LateUpdate()
         {
             // isPilot（左席Owner）または isSelected（ダイヤル選択中）なら入力処理
             if (!isPilot && !isSelected) return;
 
-            prevTriggered = triggered;
-            triggered = isSelected && TSFEUtil.IsTriggerPressed(LeftDial) || debugControllerTransform;
-
-            if (triggered)
+            if (isSelected)
             {
-                var pos = debugControllerTransform
-                    ? controlsRoot.InverseTransformPoint(debugControllerTransform.position)
-                    : controlsRoot.InverseTransformPoint(Networking.LocalPlayer.GetTrackingData(trackingTarget).position);
+                var trigger = TSFEUtil.IsTriggerPressed(LeftDial);
+                var triggerChanged = prevTrigger != trigger;
+                prevTrigger = trigger;
 
-                if (prevTriggered)
+                if (trigger)
                 {
-                    var delta = pos - prevTrackingPosition;
-                    sliderInput = Vector3.Dot(delta, vrInputAxis) * controllerSensitivity;
+                    var trackingPosition = controlsRoot.InverseTransformPoint(Networking.LocalPlayer.GetTrackingData(trackingTarget).position);
+                    if (triggerChanged)
+                    {
+                        trackingOrigin = trackingPosition;
+                    }
+                    else
+                    {
+                        var delta = Vector3.Dot(trackingPosition - trackingOrigin, vrInputAxis);
+                        if (delta > vrInputThreshold)
+                        {
+                            TrimDown();
+                            trackingOrigin = trackingPosition;
+                        }
+                        else if (delta < -vrInputThreshold)
+                        {
+                            TrimUp();
+                            trackingOrigin = trackingPosition;
+                        }
+                    }
                 }
-                else
-                {
-                    sliderInput = 0;
-                }
-                prevTrackingPosition = pos;
-            }
-            else
-            {
-                sliderInput = 0;
             }
 
             if (Input.GetKeyDown(desktopUp))
             {
-                sliderInput = desktopStep;
+                TrimUp();
             }
             if (Input.GetKeyDown(desktopDown))
             {
-                sliderInput = -desktopStep;
+                TrimDown();
             }
         }
 
-        public void TrimUp() { trim += desktopStep; }
-        public void TrimDown() { trim -= desktopStep; }
+        public void TrimUp()
+        {
+            trim = Mathf.Clamp(trim + trimStep, -1, 1);
+            if (isPilot) TSFEUtil.PlayHaptics(LeftDial, hapticDuration, hapticAmplitude, hapticFrequency);
+        }
+
+        public void TrimDown()
+        {
+            trim = Mathf.Clamp(trim - trimStep, -1, 1);
+            if (isPilot) TSFEUtil.PlayHaptics(LeftDial, hapticDuration, hapticAmplitude, hapticFrequency);
+        }
     }
 }

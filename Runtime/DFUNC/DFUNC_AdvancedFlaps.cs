@@ -24,10 +24,10 @@ namespace TSFE.DFUNC
         public GameObject powerSourceLegacy;
 
         [Header("Inputs")]
-        public float controllerSensitivity = 0.1f;
+        [Tooltip("VRでトリガー+前後操作時の移動検出閾値（メートル）")]
+        public float vrInputThreshold = 0.05f;
         public Vector3 vrInputAxis = Vector3.forward;
         public KeyCode desktopKey = KeyCode.F;
-        public bool seamless = true;
 
         [Header("Animator")]
         public string boolParameterName = "flaps";
@@ -212,7 +212,6 @@ namespace TSFE.DFUNC
 
         private bool prevTrigger;
         private Vector3 trackingOrigin;
-        private float targetAngleOrigin;
         private void HandleInput()
         {
             if (selected)
@@ -227,18 +226,21 @@ namespace TSFE.DFUNC
                     if (triggerChanged)
                     {
                         trackingOrigin = trackingPosition;
-                        targetAngleOrigin = targetAngle;
                     }
                     else
                     {
-                        targetAngle = Mathf.Clamp(targetAngleOrigin - Vector3.Dot(trackingPosition - trackingOrigin, vrInputAxis) * maxAngle / controllerSensitivity, 0, maxAngle);
+                        var delta = Vector3.Dot(trackingPosition - trackingOrigin, vrInputAxis);
+                        if (delta > vrInputThreshold)
+                        {
+                            PreviousDetent();
+                            trackingOrigin = trackingPosition;
+                        }
+                        else if (delta < -vrInputThreshold)
+                        {
+                            NextDetent();
+                            trackingOrigin = trackingPosition;
+                        }
                     }
-                }
-
-                if (triggerChanged && !trigger && !seamless)
-                {
-                    UpdateDetents();
-                    targetAngle = targetDetentAngle;
                 }
             }
 
