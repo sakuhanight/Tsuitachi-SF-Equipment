@@ -229,6 +229,40 @@ namespace TSFE.SFEXT
 
         private void UpdateStartingAPU()
         {
+            // 全エンジンがWindmill始動可能かチェック
+            bool allEnginesCanWindmillStart = true;
+            int validEngineCount = 0;
+
+            if (engines != null)
+            {
+                for (int i = 0; i < engines.Length; i++)
+                {
+                    var engine = engines[i];
+                    if (engine == null) continue;
+                    if (IsEngineInop(engine)) continue;
+                    if (engine.State == TSFE.SFEXT.EngineState.Running) continue;
+
+                    validEngineCount++;
+
+                    bool canWindmillStart = (engine.State == TSFE.SFEXT.EngineState.Windmilling)
+                                           && (engine.N2 >= engine.takeOffN2 * engine.minN2ForIgnition);
+
+                    if (!canWindmillStart)
+                    {
+                        allEnginesCanWindmillStart = false;
+                        break;
+                    }
+                }
+            }
+
+            // 全エンジンがWindmill始動可能ならAPUをスキップ
+            if (validEngineCount > 0 && allEnginesCanWindmillStart)
+            {
+                Debug.Log("[AutoStarter] All engines can windmill start - skipping APU");
+                TransitionToStartingEngines();
+                return;
+            }
+
             if (apu == null)
             {
                 Debug.LogWarning("[AutoStarter] No APU configured - cannot start engines without power");
@@ -238,7 +272,7 @@ namespace TSFE.SFEXT
                 return;
             }
 
-            if (!apu.started && !apu.terminated)
+            if (apu.State == TSFE.SFEXT.APUState.Starting)
             {
                 Debug.Log("[AutoStarter] APU already starting - waiting");
                 state = AutoStarterSequenceState.WaitingAPU;
@@ -248,14 +282,15 @@ namespace TSFE.SFEXT
                 return;
             }
 
-            if (apu.started)
+            if (apu.State == TSFE.SFEXT.APUState.Running)
             {
                 Debug.Log("[AutoStarter] APU already started - proceeding to engines");
                 TransitionToStartingEngines();
                 return;
             }
 
-            Debug.Log("[AutoStarter] Starting APU");
+            // Off状態またはStopping状態から始動
+            Debug.Log($"[AutoStarter] Starting APU from {apu.State} state");
             apu.StartAPU();
             state = AutoStarterSequenceState.WaitingAPU;
             stateStartTime = Time.time;
@@ -275,7 +310,7 @@ namespace TSFE.SFEXT
                 return;
             }
 
-            if (apu.started)
+            if (apu.State == TSFE.SFEXT.APUState.Running)
             {
                 Debug.Log("[AutoStarter] APU started successfully");
                 statusMessage = "APU: Started";
@@ -344,7 +379,7 @@ namespace TSFE.SFEXT
                     return;
                 }
 
-                if (engine.EngineOn)
+                if (engine.State == TSFE.SFEXT.EngineState.Running)
                 {
                     Debug.Log($"[AutoStarter] Engine {currentEngineIndex} already running - skipping");
                     currentEngineIndex++;
@@ -352,11 +387,26 @@ namespace TSFE.SFEXT
                     return;
                 }
 
-                Debug.Log($"[AutoStarter] Starting engine {currentEngineIndex}");
-                engine.starter = true;
-                engine.fuel = true;
-                engine.RequestSerialization();
-                statusMessage = $"Engine {currentEngineIndex + 1}/{engines.Length}: Starting...";
+                // Windmill始動判定：Windmilling状態かつN2が十分高い場合は燃料のみで再始動
+                bool isWindmillStart = (engine.State == TSFE.SFEXT.EngineState.Windmilling)
+                                       && (engine.N2 >= engine.takeOffN2 * engine.minN2ForIgnition);
+
+                if (isWindmillStart)
+                {
+                    Debug.Log($"[AutoStarter] Engine {currentEngineIndex}: Windmill start (N2={engine.N2:F0} RPM >= {engine.takeOffN2 * engine.minN2ForIgnition:F0} RPM) - fuel only");
+                    engine.fuel = true;
+                    engine.RequestSerialization();
+                    statusMessage = $"Engine {currentEngineIndex + 1}/{engines.Length}: Windmill Start...";
+                }
+                else
+                {
+                    Debug.Log($"[AutoStarter] Engine {currentEngineIndex}: Normal start (starter + fuel)");
+                    engine.starter = true;
+                    engine.fuel = true;
+                    engine.RequestSerialization();
+                    statusMessage = $"Engine {currentEngineIndex + 1}/{engines.Length}: Starting...";
+                }
+
                 currentEngineIndex++;
                 stateStartTime = Time.time;
                 UpdateIndicator();
@@ -381,14 +431,27 @@ namespace TSFE.SFEXT
                         continue;
                     }
 
-                    if (engine.EngineOn)
+                    if (engine.State == TSFE.SFEXT.EngineState.Running)
                     {
                         Debug.Log($"[AutoStarter] Engine {i} already running - skipping");
                         continue;
                     }
 
-                    engine.starter = true;
-                    engine.fuel = true;
+                    // Windmill始動判定：Windmilling状態かつN2が十分高い場合は燃料のみで再始動
+                    bool isWindmillStart = (engine.State == TSFE.SFEXT.EngineState.Windmilling)
+                                           && (engine.N2 >= engine.takeOffN2 * engine.minN2ForIgnition);
+
+                    if (isWindmillStart)
+                    {
+                        Debug.Log($"[AutoStarter] Engine {i}: Windmill start (N2={engine.N2:F0} RPM >= {engine.takeOffN2 * engine.minN2ForIgnition:F0} RPM) - fuel only");
+                        engine.fuel = true;
+                    }
+                    else
+                    {
+                        Debug.Log($"[AutoStarter] Engine {i}: Normal start (starter + fuel)");
+                        engine.starter = true;
+                        engine.fuel = true;
+                    }
                     engine.RequestSerialization();
                 }
 
@@ -423,7 +486,7 @@ namespace TSFE.SFEXT
                 if (IsEngineInop(engine)) continue;
 
                 operableCount++;
-                if (engine.EngineOn)
+                if (engine.State == TSFE.SFEXT.EngineState.Running)
                 {
                     startedCount++;
 
@@ -458,7 +521,7 @@ namespace TSFE.SFEXT
         {
             if (Time.time - stateStartTime < apuShutdownDelay) return;
 
-            if (apu != null && apu.started)
+            if (apu != null && apu.State == TSFE.SFEXT.APUState.Running)
             {
                 Debug.Log("[AutoStarter] Stopping APU");
                 apu.StopAPU();

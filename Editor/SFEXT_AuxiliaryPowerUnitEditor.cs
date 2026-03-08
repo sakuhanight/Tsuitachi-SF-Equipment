@@ -76,21 +76,50 @@ namespace TSFE.Editor
 
                     EditorGUILayout.Space();
 
-                    // Status
+                    // Status - APUState enumを直接読み取る
                     EditorGUILayout.LabelField("Status", EditorStyles.boldLabel);
 
-                    // Started
-                    GUI.color = apu.started ? Color.green : Color.gray;
-                    EditorGUILayout.LabelField("Started", apu.started ? "YES" : "NO");
+                    // Get private _apuStateInt field via reflection
+                    var apuStateField = typeof(TSFE.SFEXT.SFEXT_AuxiliaryPowerUnit).GetField("_apuStateInt", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                    int apuStateInt = apuStateField != null ? (int)apuStateField.GetValue(apu) : 0;
+                    TSFE.SFEXT.APUState apuState = (TSFE.SFEXT.APUState)apuStateInt;
 
-                    // Starting (run=true && started=false && terminated=false)
-                    bool isStarting = !apu.started && !apu.terminated;
-                    GUI.color = isStarting ? Color.yellow : Color.gray;
-                    EditorGUILayout.LabelField("Starting", isStarting ? "YES" : "NO");
+                    // APUState表示（大きく、カラー付き）
+                    GUIStyle stateStyle = new GUIStyle(EditorStyles.boldLabel);
+                    stateStyle.fontSize = 14;
 
-                    // Terminated
-                    GUI.color = apu.terminated ? Color.red : Color.gray;
-                    EditorGUILayout.LabelField("Terminated", apu.terminated ? "YES" : "NO");
+                    switch (apuState)
+                    {
+                        case TSFE.SFEXT.APUState.Off:
+                            GUI.color = Color.gray;
+                            EditorGUILayout.LabelField("APU State", "OFF", stateStyle);
+                            break;
+                        case TSFE.SFEXT.APUState.Starting:
+                            GUI.color = Color.yellow;
+                            EditorGUILayout.LabelField("APU State", "STARTING", stateStyle);
+                            break;
+                        case TSFE.SFEXT.APUState.Running:
+                            GUI.color = Color.green;
+                            EditorGUILayout.LabelField("APU State", "RUNNING", stateStyle);
+                            break;
+                        case TSFE.SFEXT.APUState.Stopping:
+                            GUI.color = new Color(1f, 0.5f, 0f); // オレンジ
+                            EditorGUILayout.LabelField("APU State", "STOPPING", stateStyle);
+                            break;
+                    }
+                    GUI.color = Color.white;
+
+                    EditorGUILayout.Space();
+
+                    // 詳細情報
+                    EditorGUILayout.LabelField("Details", EditorStyles.miniBoldLabel);
+
+                    // runフラグを取得
+                    var runField = typeof(TSFE.SFEXT.SFEXT_AuxiliaryPowerUnit).GetField("run", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                    bool run = runField != null ? (bool)runField.GetValue(apu) : false;
+
+                    GUI.color = run ? Color.cyan : Color.gray;
+                    EditorGUILayout.LabelField("  run (UdonSynced)", run.ToString());
 
                     GUI.color = Color.white;
 

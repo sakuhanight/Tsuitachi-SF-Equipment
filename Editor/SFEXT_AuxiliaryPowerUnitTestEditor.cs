@@ -66,10 +66,29 @@ namespace TSFE.Editor
                 EditorGUILayout.BeginVertical("box");
                 EditorGUILayout.LabelField("APU State (Real-time)", EditorStyles.boldLabel);
 
-                GUI.color = apu.started ? Color.green : Color.gray;
-                EditorGUILayout.LabelField("Started", apu.started ? "YES" : "NO");
-                GUI.color = apu.terminated ? Color.red : Color.gray;
-                EditorGUILayout.LabelField("Terminated", apu.terminated ? "YES" : "NO");
+                // APU State表示
+                GUIStyle stateStyle = new GUIStyle(EditorStyles.boldLabel);
+                stateStyle.fontSize = 14;
+
+                switch (apu.State)
+                {
+                    case TSFE.SFEXT.APUState.Off:
+                        GUI.color = Color.gray;
+                        EditorGUILayout.LabelField("State", "OFF", stateStyle);
+                        break;
+                    case TSFE.SFEXT.APUState.Starting:
+                        GUI.color = Color.yellow;
+                        EditorGUILayout.LabelField("State", "STARTING", stateStyle);
+                        break;
+                    case TSFE.SFEXT.APUState.Running:
+                        GUI.color = Color.green;
+                        EditorGUILayout.LabelField("State", "RUNNING", stateStyle);
+                        break;
+                    case TSFE.SFEXT.APUState.Stopping:
+                        GUI.color = new Color(1f, 0.5f, 0f); // オレンジ
+                        EditorGUILayout.LabelField("State", "STOPPING", stateStyle);
+                        break;
+                }
                 GUI.color = Color.white;
 
                 EditorGUILayout.EndVertical();

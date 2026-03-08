@@ -128,13 +128,18 @@ namespace TSFE.SFEXT
                 float thrust = engine.maxThrust * thrustRatio;
                 if (engine.reversing) thrust *= -engine.reverserRatio;
 
-                text += "--- Engine " + (i + 1) + " ---\n";
+                // EngineStateの文字列変換
+                string stateStr = engine.State.ToString();
+
+                text += "--- Engine " + (i + 1) + " [" + stateStr + "] ---\n";
                 text += "N1: " + engine.N1.ToString("F1") + " RPM (" + n1Pct.ToString("F1") + "%)\n";
                 text += "N2: " + engine.N2.ToString("F1") + " RPM (" + n2Pct.ToString("F1") + "%)\n";
                 text += "EGT: " + engine.EGT.ToString("F0") + " C | ECT: " + engine.ECT.ToString("F0") + " C\n";
                 text += "Thrust: " + thrust.ToString("F1") + " N\n";
                 text += "Starter: " + (engine.starter ? "ON" : "OFF") + " | Fuel: " + (engine.fuel ? "ON" : "OFF") + "\n";
-                text += "Running: " + (engine.EngineOn ? "YES" : "NO") + " | Fire: " + (engine.fire ? "YES" : "NO") + "\n\n";
+                text += "Fire: " + (engine.fire ? "YES" : "NO") + " | Seized: " + (engine.State == SFEXT.EngineState.Seized ? "YES" : "NO") + "\n";
+                if (engine.fireHandlePulled) text += "FIRE HANDLE: PULLED\n";
+                text += "\n";
             }
 
             debugText.text = text;

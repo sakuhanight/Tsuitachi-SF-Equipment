@@ -6,6 +6,15 @@ using TSFE.Utility;
 
 namespace TSFE.SFEXT
 {
+    public enum EngineState
+    {
+        Off = 0,         // 完全停止（地上、N1/N2 = 0）
+        Windmilling = 1, // 風車回転（飛行中、意図的停止後）
+        Starting = 2,    // 始動中（スターター稼働）
+        Running = 3,     // 正常運転中
+        Seized = 4       // 破損・固着（MTBF/バードストライク等）
+    }
+
     [UdonBehaviourSyncMode(BehaviourSyncMode.Continuous)]
     [DefaultExecutionOrder(1000)]
     public class SFEXT_AdvancedEngine : UdonSharpBehaviour
@@ -33,12 +42,6 @@ namespace TSFE.SFEXT
         public float idleN2 = 12100f;
         public float referenceN2 = 17167f;
         public float takeOffN2 = 20171f;
-        [Tooltip("Starter目標N2 (% of takeOffN2) - CFM56: 25%, FJ44: 20%")]
-        [Range(0.15f, 0.35f)]
-        public float starterTargetN2 = 0.25f;
-        [Tooltip("燃料投入可能最低N2 (% of takeOffN2) - 通常はstarterTargetN2と同じ、早期投入なら低く設定")]
-        [Range(0.15f, 0.35f)]
-        public float minN2ForIgnition = 0.25f;
         [Tooltip("N2応答速度 (Fuel ON→Idle: 約20秒)")]
         public float n2Response = 0.15f;
         [Tooltip("N2減少応答速度")]
@@ -79,6 +82,8 @@ namespace TSFE.SFEXT
         public float afterburnerResponse = 2f;
 
         [Header("故障 MTBF (秒)")]
+        [Tooltip("故障システムを有効化 - false で火災・メルトダウン・連続運転制限を完全に無効化")]
+        public bool enableFailureSystem = true;
         public float mtbFireAtContinuous = 2592000f;
         public float mtbFireAtOverheat = 90f;
         public float mtbMeltdownOnFire = 90f;
@@ -97,9 +102,35 @@ namespace TSFE.SFEXT
         [Header("始動システム")]
         [Tooltip("スターター電源/ブリード空気源（PowerBus/poweredIndicator または BleedAirBus/bleedAirIndicator、null=単独始動可能）")]
         public GameObject starterPowerSource;
+
+        [Tooltip("N1軸スターター方式（T-4等）- false=N2軸スターター（CFM56, 737等の一般的な方式）")]
+        public bool n1Start = false;
+
+        [Header("N2軸スターター設定（n1Start=false時）")]
+        [Tooltip("スターター目標N2 (% of takeOffN2) - CFM56: 25%, FJ44: 20%")]
+        [Range(0.15f, 0.35f)]
+        public float starterTargetN2Ratio = 0.25f;
+        [Tooltip("燃料投入可能最低N2 (% of takeOffN2) - 現実: 15% (燃料ポンプ圧力確保に必要)")]
+        [Range(0.15f, 0.35f)]
+        public float minN2ForIgnition = 0.15f;
+
+        [Header("N1軸スターター設定（n1Start=true時）")]
+        [Tooltip("スターター目標N1 (% of takeOffN1) - T-4: 15%程度")]
+        [Range(0.1f, 0.3f)]
+        public float starterTargetN1Ratio = 0.15f;
+        [Tooltip("自動燃料投入N1閾値 (% of takeOffN1) - T-4: 10%")]
+        [Range(0.05f, 0.15f)]
+        public float autoIgnitionN1Threshold = 0.10f;
+        [Tooltip("始動時のN2/N1比（機械結合、燃焼前）")]
+        [Range(0.8f, 1.5f)]
+        public float startingN2toN1Ratio = 1.2f;
+        [Tooltip("自動燃料投入を有効化（n1Start=true時のみ有効）")]
+        public bool autoFuelInjection = true;
+
+        [Header("共通始動設定")]
         [Tooltip("自動スターターカットを有効化 - アイドル回転到達時に自動的にスターターを切る")]
         public bool autoStarterCutoff = true;
-        [Tooltip("自動スターターカット閾値 (% of idleN2) - この回転数に達したらスターターを切る")]
+        [Tooltip("自動スターターカット閾値 - n1Start ? (N1/idleN1) : (N2/idleN2)")]
         [Range(0.9f, 1.0f)]
         public float starterCutoffThreshold = 0.95f;
 
@@ -116,6 +147,39 @@ namespace TSFE.SFEXT
         public bool enableAsymmetricThrust = false;
         [Tooltip("エンジン位置 (ローカル座標) - 機体重心からの相対位置、nullの場合はこのGameObjectの位置を使用")]
         public Transform enginePosition;
+
+        [Header("Windmilling設定")]
+        [Tooltip("Windmilling時のN1比率（基準速度時） - 290 KIAS で15% N2達成に調整")]
+        [Range(0.05f, 0.35f)]
+        public float windmillingN1Ratio = 0.27f;
+        [Tooltip("Windmilling時のN2/N1比（機械損失考慮） - N2の方が高速回転")]
+        [Range(1.5f, 4.0f)]
+        public float windmillingN2toN1Ratio = 2.7f;
+        [Tooltip("Windmilling最大N1制限 (% of takeOffN1) - 高速時のN1上限")]
+        [Range(0.15f, 0.50f)]
+        public float windmillingMaxN1Ratio = 0.35f;
+        [Tooltip("Windmilling基準速度 (KIAS) - 現実の15% N2到達速度（Windmill始動可能速度）")]
+        public float windmillingReferenceSpeed = 290f;
+        [Tooltip("Windmilling維持最低速度 (KIAS) - これ以下でOff状態に遷移")]
+        public float minimumWindmillingSpeed = 150f;
+
+        [Header("Windmilling抗力")]
+        [Tooltip("Windmilling抗力係数")]
+        [Range(0.05f, 0.5f)]
+        public float windmillingDragCoefficient = 0.15f;
+        [Tooltip("抗力計算基準速度 (KIAS)")]
+        public float windmillingDragReferenceSpeed = 290f;
+
+        [Header("燃料消費")]
+        [Tooltip("燃料消費システムを有効化 - エンジン稼働中にSAVControlのFuelを消費")]
+        public bool enableFuelConsumption = true;
+        [Tooltip("アイドル時の燃料消費率 (kg/s) - CFM56-7B: 約0.15 kg/s")]
+        public float idleFuelFlow = 0.15f;
+        [Tooltip("最大出力時の燃料消費率 (kg/s) - CFM56-7B: 約1.1 kg/s")]
+        public float maxFuelFlow = 1.1f;
+        [Tooltip("アフターバーナー時の燃料消費倍率 - 通常の2-3倍")]
+        [Range(1.0f, 4.0f)]
+        public float afterburnerFuelMultiplier = 2.5f;
 
         [Header("コンポーネント")]
         public UdonSharpBehaviour SAVControl;
@@ -206,8 +270,19 @@ namespace TSFE.SFEXT
         [UdonSynced(UdonSyncMode.None)] public bool fireHandlePulled = false;
         [UdonSynced(UdonSyncMode.None)] public bool fireAlarmMuted = false;
 
-        private bool isOwner, engineOn, meltdown;
-        private float throttleInput, reverserPosition, appliedThrust;
+        [UdonSynced] private int _StateInt = 0;
+
+        /// <summary>
+        /// エンジン状態（外部スクリプトから読み取り可能）
+        /// </summary>
+        public EngineState State
+        {
+            get => (EngineState)_StateInt;
+            private set { _StateInt = (int)value; }
+        }
+
+        private bool isOwner;
+        private float throttleInput, reverserPosition, appliedThrust, appliedWindmillingDrag;
         private float idleVol, insideVol, thrustVol, takeoffVol, reverserVol, afterburnerVol;
         private float idlePit, insidePit, thrustPit, takeoffPit, reverserPit, afterburnerPit;
         private ParticleSystem.MainModule jetBlastMain;
@@ -348,9 +423,11 @@ namespace TSFE.SFEXT
             reversing = starter = fuel = fire = false;
             fireHandlePulled = fireAlarmMuted = false;
 
+            // エンジン状態リセット
+            State = EngineState.Off;
+
             // ローカル変数のリセット
             reverserPosition = 0f;
-            meltdown = engineOn = false;
             continuousPowerTime = 0f;
             afterburnerLevel = 0f;
 
@@ -361,6 +438,14 @@ namespace TSFE.SFEXT
                 float t = (float)SAVControl.GetProgramVariable("ThrottleStrength");
                 SAVControl.SetProgramVariable("ThrottleStrength", t - appliedAcceleration);
                 appliedThrust = 0f;
+            }
+
+            // Windmilling抗力を解除
+            if (SAVControl != null && appliedWindmillingDrag != 0f)
+            {
+                float currentDrag = (float)SAVControl.GetProgramVariable("ExtraDrag");
+                SAVControl.SetProgramVariable("ExtraDrag", currentDrag - appliedWindmillingDrag);
+                appliedWindmillingDrag = 0f;
             }
 
             // Udon同期変数の変更を同期
@@ -374,15 +459,16 @@ namespace TSFE.SFEXT
         {
             float dt = Time.deltaTime;
 
-
             if (isOwner)
             {
                 if (SAVControl != null)
                 {
                     throttleInput = (float)SAVControl.GetProgramVariable("ThrottleInput");
                 }
+                UpdateEngineState(dt);
                 UpdateEngine(dt);
                 UpdateDamage(dt);
+                UpdateWindmillingDrag(dt);
             }
 
             UpdateAnimation();
@@ -394,74 +480,12 @@ namespace TSFE.SFEXT
 
         private void UpdateEngine(float dt)
         {
-            // ファイヤーハンドル引いた状態での燃料カット
-            bool effectiveFuel = fuel;
-            if (fireHandlePulled && fireHandleCutsFuel)
-            {
-                effectiveFuel = false;
-            }
-
-            // エンジン稼働判定: 燃料投入 + N2が燃焼維持可能な回転数
-            // 燃焼が始まればN2は自力で加速、N1も回転開始
-            engineOn = effectiveFuel && N2 >= takeOffN2 * minN2ForIgnition;
-
-            // スターター電源/ブリード空気チェック
-            bool starterPowerAvailable = CheckStarterPowerAvailable();
-
-            // 自動スターターカットオフ
-            if (autoStarterCutoff && starter && N2 >= idleN2 * starterCutoffThreshold)
-            {
-                starter = false;
-                if (isOwner)
-                {
-                    RequestSerialization();
-                }
-            }
-
-            // N2更新
-            // Starter使用中、またはエンジンが自立回転に達していない場合
-            // 浮動小数点誤差を考慮して99%で判定
-            bool needsStarter = starter || (effectiveFuel && N2 < idleN2 * 0.99f);
-
-            if (needsStarter && !meltdown && starterPowerAvailable)
-            {
-                float target = effectiveFuel ? idleN2 : takeOffN2 * starterTargetN2;
-                float resp = effectiveFuel ? n2Response : n2StartupResponse;
-                N2 = Mathf.MoveTowards(N2, target, resp * Mathf.Abs(target - N2) * dt);
-            }
-            else if (engineOn && !meltdown)
-            {
-                // Throttle入力に基づくN2目標
-                float n2FromThrottle = Mathf.Lerp(idleN2, takeOffN2, throttleInput);
-                // N1に基づくN2制限（N1がまだ上がっていない場合の制限）
-                float n2FromN1 = TSFEUtil.ClampedRemap(N1, idleN1, takeOffN1, idleN2, takeOffN2);
-                // 両方のうち高い方を使用（throttleが高ければN2が先行して上がる）
-                float target = Mathf.Max(n2FromThrottle, n2FromN1);
-                N2 = Mathf.MoveTowards(N2, target, n2Response * Mathf.Abs(target - N2) * dt);
-            }
-            else
-            {
-                N2 = Mathf.MoveTowards(N2, 0f, n2DecreaseResponse * N2 * dt);
-            }
-
-            // N1更新
-            if (engineOn && !meltdown)
-            {
-                float target = Mathf.Lerp(idleN1, takeOffN1, throttleInput);
-                // N2がidleの99%以上ならN1制限なし、それ以下ならN2に応じて制限
-                float n2Min = idleN2 * 0.99f;
-                target = Mathf.Min(target, TSFEUtil.ClampedRemap(N2, n2Min, takeOffN2, idleN1, takeOffN1));
-                float resp = target > N1 ? n1Response : n1DecreaseResponse;
-                N1 = Mathf.MoveTowards(N1, target, resp * Mathf.Abs(target - N1) * dt);
-            }
-            else
-            {
-                N1 = Mathf.MoveTowards(N1, 0f, n1DecreaseResponse * N1 * dt);
-            }
+            // N1/N2更新（状態別メソッドに委譲）
+            UpdateN1N2(dt);
 
             // 温度更新
             // EGT: 燃焼時のみ上昇
-            float targetEGT = engineOn && !meltdown
+            float targetEGT = State == EngineState.Running
                 ? TSFEUtil.ClampedRemap(N1, idleN1, takeOffN1, idleEGT, takeOffEGT)
                 : (fire ? fireEGT : ambientTemp);
             EGT = Mathf.Lerp(EGT, targetEGT, egtResponse * dt);
@@ -472,11 +496,11 @@ namespace TSFE.SFEXT
             {
                 targetECT = fireECT;
             }
-            else if (N2 > 0f && !meltdown)
+            else if (N2 > 0f && State != EngineState.Seized)
             {
                 // N2回転中はECT上昇 (Starter時: 約50°C、アイドル以上: idleECT～)
                 float n2Norm = Mathf.Clamp01(N2 / idleN2);
-                if (engineOn)
+                if (State == EngineState.Running)
                 {
                     // 燃焼中: N1に基づく温度
                     targetECT = TSFEUtil.ClampedRemap(N1, idleN1, referenceN1, idleECT, continuousECT);
@@ -501,7 +525,7 @@ namespace TSFE.SFEXT
             float thrustRatio = 0f;
 
             // エンジン停止中は推力0（安全チェック）
-            if (!engineOn || N1 < 0.01f)
+            if (State != EngineState.Running || N1 < 0.01f)
             {
                 thrustRatio = 0f;
             }
@@ -529,78 +553,118 @@ namespace TSFE.SFEXT
 
             if (reverserPosition > 0f) thrust *= -(reverserRatio * reverserPosition);
 
+            // デバッグログ（推力計算）
+            if (Time.frameCount % 60 == 0) // 1秒ごと
+            {
+                Debug.Log($"[Engine Thrust] State={State}, N1={N1:F0}RPM, thrustRatio={thrustRatio:F3}, thrust={thrust:F0}N, appliedThrust={appliedThrust:F0}N");
+            }
+
             // 推力適用
             if (SAVControl != null && vehicleMass > 0f)
             {
                 // SaccAirVehicleの_EngineOn変数を制御
                 bool savEngineOn = (bool)SAVControl.GetProgramVariable("_EngineOn");
+                bool shouldBeOn = (State == EngineState.Running);
 
-                if (engineOn && !savEngineOn)
+                if (shouldBeOn && !savEngineOn)
                 {
                     SAVControl.SetProgramVariable("_EngineOn", true);
                 }
-                else if (!engineOn && savEngineOn)
+                else if (!shouldBeOn && savEngineOn)
                 {
                     SAVControl.SetProgramVariable("_EngineOn", false);
                 }
 
-                // 動的ThrottleStrength調整
-                if (enableDynamicThrust)
+                // Running状態の時のみ推力を適用
+                if (State == EngineState.Running)
                 {
-                    // 現在のThrottleStrengthを取得
-                    float currentThrottleStrength = (float)SAVControl.GetProgramVariable("ThrottleStrength");
-
-                    // このエンジンの推力加速度を計算 (N → m/s²)
-                    float thrustAcceleration = thrust / vehicleMass;
-
-                    // 前回適用した推力との差分を計算
-                    float appliedAcceleration = appliedThrust / vehicleMass;
-                    float deltaAcceleration = thrustAcceleration - appliedAcceleration;
-
-                    // ThrottleStrengthに差分を加算（複数エンジンの場合、各エンジンが自分の貢献分を加算）
-                    float newThrottleStrength = currentThrottleStrength + deltaAcceleration;
-                    SAVControl.SetProgramVariable("ThrottleStrength", newThrottleStrength);
-                }
-
-                // 非対称推力システム (トルク生成)
-                if (enableAsymmetricThrust)
-                {
-                    // VehicleRigidbodyを取得
-                    object rbObj = SAVControl.GetProgramVariable("VehicleRigidbody");
-                    if (rbObj != null)
+                    // 動的ThrottleStrength調整
+                    if (enableDynamicThrust)
                     {
-                        Rigidbody vehicleRb = (Rigidbody)rbObj;
+                        // 現在のThrottleStrengthを取得
+                        float currentThrottleStrength = (float)SAVControl.GetProgramVariable("ThrottleStrength");
 
-                        // エンジン位置を取得 (nullの場合はこのGameObjectの位置)
-                        Transform engPos = enginePosition != null ? enginePosition : transform;
+                        // このエンジンの推力加速度を計算 (N → m/s²)
+                        float thrustAcceleration = thrust / vehicleMass;
 
-                        // ワールド座標でのエンジン位置から機体重心までのベクトル
-                        Vector3 rVector = engPos.position - vehicleRb.worldCenterOfMass;
+                        // 前回適用した推力との差分を計算
+                        float appliedAcceleration = appliedThrust / vehicleMass;
+                        float deltaAcceleration = thrustAcceleration - appliedAcceleration;
 
-                        // 推力方向 (エンジンのローカルZ軸 = 前方)
-                        Vector3 thrustForce = engPos.forward * thrust;
-
-                        // トルク計算: τ = r × F
-                        // エンジンが左右に配置されている場合、片側停止で機体がヨーイングする
-                        Vector3 torque = Vector3.Cross(rVector, thrustForce);
-
-                        // Rigidbodyに直接トルクを適用 (ForceMode.Force = 連続的な力)
-                        vehicleRb.AddTorque(torque, ForceMode.Force);
-
+                        // ThrottleStrengthに差分を加算（複数エンジンの場合、各エンジンが自分の貢献分を加算）
+                        float newThrottleStrength = currentThrottleStrength + deltaAcceleration;
+                        SAVControl.SetProgramVariable("ThrottleStrength", newThrottleStrength);
                     }
+
+                    // 非対称推力システム (トルク生成)
+                    if (enableAsymmetricThrust)
+                    {
+                        // VehicleRigidbodyを取得
+                        object rbObj = SAVControl.GetProgramVariable("VehicleRigidbody");
+                        if (rbObj != null)
+                        {
+                            Rigidbody vehicleRb = (Rigidbody)rbObj;
+
+                            // エンジン位置を取得 (nullの場合はこのGameObjectの位置)
+                            Transform engPos = enginePosition != null ? enginePosition : transform;
+
+                            // ワールド座標でのエンジン位置から機体重心までのベクトル
+                            Vector3 rVector = engPos.position - vehicleRb.worldCenterOfMass;
+
+                            // 推力方向 (エンジンのローカルZ軸 = 前方)
+                            Vector3 thrustForce = engPos.forward * thrust;
+
+                            // トルク計算: τ = r × F
+                            // エンジンが左右に配置されている場合、片側停止で機体がヨーイングする
+                            Vector3 torque = Vector3.Cross(rVector, thrustForce);
+
+                            // Rigidbodyに直接トルクを適用 (ForceMode.Force = 連続的な力)
+                            vehicleRb.AddTorque(torque, ForceMode.Force);
+                        }
+                    }
+
+                    appliedThrust = thrust;
+                }
+                else
+                {
+                    // Running以外の状態では推力をゼロに保つ
+                    appliedThrust = 0f;
+                }
+            }
+
+            // 燃料消費
+            if (enableFuelConsumption && SAVControl != null && State == EngineState.Running)
+            {
+                // 推力比率に基づいて燃料消費率を計算
+                float fuelFlow = Mathf.Lerp(idleFuelFlow, maxFuelFlow, thrustRatio);
+
+                // アフターバーナー使用時は燃料消費が増加
+                if (hasAfterburner && afterburnerLevel > 0.01f)
+                {
+                    fuelFlow *= Mathf.Lerp(1f, afterburnerFuelMultiplier, afterburnerLevel);
                 }
 
+                // 燃料を消費
+                float currentFuel = (float)SAVControl.GetProgramVariable("Fuel");
+                float newFuel = Mathf.Max(0f, currentFuel - fuelFlow * dt);
+                SAVControl.SetProgramVariable("Fuel", newFuel);
 
-                appliedThrust = thrust;
+                // 燃料切れの場合、自動的にエンジン停止
+                if (newFuel <= 0f && fuel)
+                {
+                    fuel = false;
+                    RequestSerialization();
+                    Debug.Log("[AdvancedEngine] Fuel exhausted - Engine shutting down");
+                }
             }
         }
 
         private void UpdateDamage(float dt)
         {
-            if (meltdown) return;
+            if (State == EngineState.Seized) return;
 
             // 高出力連続運転制限チェック
-            if (enableContinuousPowerLimit && engineOn)
+            if (enableContinuousPowerLimit && State == EngineState.Running)
             {
                 // 現在の推力比率を計算
                 float thrustRatio = 0f;
@@ -622,7 +686,7 @@ namespace TSFE.SFEXT
                         // 超過時間に応じてダメージ倍率を計算（1分超過で2倍、2分超過で3倍...）
                         float damageMultiplier = 1f + excessTime / 60f;
 
-                        if (TSFEUtil.CheckMTBFScaled(dt, mtbFireAtContinuousPower, damageMultiplier))
+                        if (enableFailureSystem && TSFEUtil.CheckMTBFScaled(dt, mtbFireAtContinuousPower, damageMultiplier))
                         {
                             fire = true;
                             OnFireStart();
@@ -637,7 +701,7 @@ namespace TSFE.SFEXT
             }
 
             // Afterburner logic
-            if (hasAfterburner && engineOn && !reversing)
+            if (hasAfterburner && State == EngineState.Running && !reversing)
             {
                 float targetAB = (throttleInput > afterburnerThreshold) ? 1f : 0f;
                 afterburnerLevel = Mathf.MoveTowards(afterburnerLevel, targetAB, afterburnerResponse * Mathf.Abs(targetAB - afterburnerLevel) * dt);
@@ -647,7 +711,7 @@ namespace TSFE.SFEXT
                 afterburnerLevel = Mathf.MoveTowards(afterburnerLevel, 0f, afterburnerResponse * afterburnerLevel * dt);
             }
 
-            if (!fire)
+            if (enableFailureSystem && !fire)
             {
                 if (ECT >= overheatECT)
                 {
@@ -668,9 +732,9 @@ namespace TSFE.SFEXT
                 }
             }
 
-            if (fire && TSFEUtil.CheckMTBF(dt, mtbMeltdownOnFire))
+            if (enableFailureSystem && fire && TSFEUtil.CheckMTBF(dt, mtbMeltdownOnFire))
             {
-                meltdown = true;
+                State = EngineState.Seized;
                 fuel = starter = false;
             }
         }
@@ -950,7 +1014,7 @@ namespace TSFE.SFEXT
 
         private void UpdatePlayerHazards()
         {
-            if (!engineOn) return;
+            if (State != EngineState.Running) return;
 
             VRCPlayerApi player = Networking.LocalPlayer;
             if (player == null) return;
@@ -999,7 +1063,7 @@ namespace TSFE.SFEXT
         {
             if (engineOnIndicator != null)
             {
-                engineOnIndicator.SetActive(engineOn);
+                engineOnIndicator.SetActive(State == EngineState.Running);
             }
         }
 
@@ -1060,7 +1124,298 @@ namespace TSFE.SFEXT
             if (fireBurnSound != null) fireBurnSound.spatialBlend = blend;
         }
 
-        public bool EngineOn => engineOn;
+        // ========================================================================
+        // N1/N2更新ロジック（状態別）
+        // ========================================================================
+
+        private void UpdateN1N2(float dt)
+        {
+            switch (State)
+            {
+                case EngineState.Off:
+                    // 慣性減衰（地上停止時のスピンダウン）
+                    UpdateN1Decay(dt);
+                    UpdateN2Decay(dt);
+                    break;
+
+                case EngineState.Starting:
+                    if (n1Start)
+                    {
+                        UpdateN1FromStarter(dt);
+                        UpdateN2FromN1Starting(dt);
+                    }
+                    else
+                    {
+                        UpdateN2FromStarter(dt);
+                        UpdateN1FromN2Starting(dt);
+                    }
+                    break;
+
+                case EngineState.Windmilling:
+                    UpdateN1FromAirSpeed(dt);
+                    UpdateN2FromN1Windmill(dt);
+                    break;
+
+                case EngineState.Running:
+                    UpdateN2FromThrottle(dt);
+                    UpdateN1FromN2(dt);
+                    break;
+
+                case EngineState.Seized:
+                    UpdateN1Decay(dt);
+                    UpdateN2Decay(dt);
+                    break;
+            }
+        }
+
+        // ===== N1軸スターター用（T-4等） =====
+        private void UpdateN1FromStarter(float dt)
+        {
+            float targetN1 = takeOffN1 * starterTargetN1Ratio;
+            N1 = Mathf.MoveTowards(N1, targetN1, n1StartupResponse * Mathf.Abs(N1 - targetN1) * dt);
+        }
+
+        private void UpdateN2FromN1Starting(float dt)
+        {
+            float targetN2 = N1 * startingN2toN1Ratio;
+            N2 = Mathf.MoveTowards(N2, targetN2, n2StartupResponse * Mathf.Abs(N2 - targetN2) * dt);
+        }
+
+        // ===== N2軸スターター用（CFM56, 737等） =====
+        private void UpdateN2FromStarter(float dt)
+        {
+            bool effectiveFuel = fuel && (!fireHandlePulled || !fireHandleCutsFuel);
+            float target = effectiveFuel ? idleN2 : takeOffN2 * starterTargetN2Ratio;
+            float resp = effectiveFuel ? n2Response : n2StartupResponse;
+            N2 = Mathf.MoveTowards(N2, target, resp * Mathf.Abs(target - N2) * dt);
+        }
+
+        private void UpdateN1FromN2Starting(float dt)
+        {
+            // N2に応じてN1が機械的に追従
+            float targetN1 = TSFEUtil.ClampedRemap(N2, 0f, idleN2, 0f, idleN1);
+            N1 = Mathf.MoveTowards(N1, targetN1, n1StartupResponse * Mathf.Abs(N1 - targetN1) * dt);
+        }
+
+        // ===== Windmilling用 =====
+        // NOTE: Windmilling RPMは速度に依存するため、高速飛行時はアイドルRPMより高くなることがあります。
+        // これは物理的に正しい挙動です（例: 300kt飛行中のWindmilling N1 > 地上アイドル N1）
+        private void UpdateN1FromAirSpeed(float dt)
+        {
+            if (SAVControl == null) return;
+
+            float airSpeed = (float)SAVControl.GetProgramVariable("AirSpeed");
+            float atmosphere = (float)SAVControl.GetProgramVariable("Atmosphere");
+
+            // Windmillingは動圧（IAS）に依存するため、TASをIASに変換
+            // IAS = TAS * sqrt(atmosphere)
+            float ias = airSpeed * Mathf.Sqrt(atmosphere);
+
+            // KIASをm/sに変換
+            float windmillingRefSpeed_ms = TSFEUtil.FromKnots(windmillingReferenceSpeed);
+
+            float targetN1 = takeOffN1 * (ias / windmillingRefSpeed_ms)
+                             * windmillingN1Ratio;
+            float targetN1Unclamped = targetN1;
+            targetN1 = Mathf.Clamp(targetN1, 0f, takeOffN1 * windmillingMaxN1Ratio);
+
+            // デバッグログ（一時的）
+            if (Time.frameCount % 60 == 0) // 1秒ごと
+            {
+                float targetN2 = targetN1 * windmillingN2toN1Ratio;
+                float n2Pct = targetN2 / takeOffN2 * 100f;
+                Debug.Log($"[Windmilling] TAS={airSpeed:F1}m/s, Atm={atmosphere:F2}, IAS={ias:F1}m/s ({TSFEUtil.ToKnots(ias):F0}KIAS), targetN1={targetN1Unclamped:F0}RPM→{targetN1:F0}RPM (idle={idleN1:F0}), targetN2={targetN2:F0}RPM ({n2Pct:F1}%)");
+            }
+
+            N1 = Mathf.MoveTowards(N1, targetN1, n1DecreaseResponse * Mathf.Abs(N1 - targetN1) * dt);
+        }
+
+        private void UpdateN2FromN1Windmill(float dt)
+        {
+            float targetN2 = N1 * windmillingN2toN1Ratio;
+            N2 = Mathf.MoveTowards(N2, targetN2, n2DecreaseResponse * Mathf.Abs(N2 - targetN2) * dt);
+        }
+
+        // ===== Running用 =====
+        private void UpdateN2FromThrottle(float dt)
+        {
+            float n2FromThrottle = Mathf.Lerp(idleN2, takeOffN2, throttleInput);
+            float n2FromN1 = TSFEUtil.ClampedRemap(N1, idleN1, takeOffN1, idleN2, takeOffN2);
+            float target = Mathf.Max(n2FromThrottle, n2FromN1);
+            N2 = Mathf.MoveTowards(N2, target, n2Response * Mathf.Abs(target - N2) * dt);
+        }
+
+        private void UpdateN1FromN2(float dt)
+        {
+            float target = Mathf.Lerp(idleN1, takeOffN1, throttleInput);
+            float n2Min = idleN2 * 0.99f;
+            target = Mathf.Min(target, TSFEUtil.ClampedRemap(N2, n2Min, takeOffN2, idleN1, takeOffN1));
+            float resp = target > N1 ? n1Response : n1DecreaseResponse;
+
+            // デバッグログ（一時的）
+            if (Time.frameCount % 60 == 0) // 1秒ごと
+            {
+                Debug.Log($"[Running] throttleInput={throttleInput:F2}, N1={N1:F0}RPM (target={target:F0}, idle={idleN1:F0}), N2={N2:F0}RPM");
+            }
+
+            N1 = Mathf.MoveTowards(N1, target, resp * Mathf.Abs(target - N1) * dt);
+        }
+
+        // ===== 慣性減衰用（Off/Seized状態） =====
+        private void UpdateN1Decay(float dt)
+        {
+            N1 = Mathf.MoveTowards(N1, 0f, n1DecreaseResponse * N1 * 10f * dt);
+        }
+
+        private void UpdateN2Decay(float dt)
+        {
+            N2 = Mathf.MoveTowards(N2, 0f, n2DecreaseResponse * N2 * 10f * dt);
+        }
+
+        // ========================================================================
+        // 状態遷移ロジック
+        // ========================================================================
+
+        private void UpdateEngineState(float dt)
+        {
+            EngineState prevState = State;
+            bool starterPowerAvailable = CheckStarterPowerAvailable();
+            float airSpeed = SAVControl != null ? (float)SAVControl.GetProgramVariable("AirSpeed") : 0f;
+            float atmosphere = SAVControl != null ? (float)SAVControl.GetProgramVariable("Atmosphere") : 1f;
+            bool effectiveFuel = fuel && (!fireHandlePulled || !fireHandleCutsFuel);
+
+            // TASをIASに変換（Windmilling判定用）
+            float ias = airSpeed * Mathf.Sqrt(atmosphere);
+            float minWindmillSpeed_ms = TSFEUtil.FromKnots(minimumWindmillingSpeed);
+
+            switch (State)
+            {
+                case EngineState.Off:
+                    if (starter && starterPowerAvailable)
+                        State = EngineState.Starting;
+                    break;
+
+                case EngineState.Starting:
+                    // 自動燃料投入（N1軸スターターのみ）
+                    if (n1Start && autoFuelInjection && !fuel && N1 >= takeOffN1 * autoIgnitionN1Threshold)
+                    {
+                        fuel = true;
+                        RequestSerialization();
+                    }
+
+                    // Running状態への遷移判定
+                    if (effectiveFuel && N2 >= takeOffN2 * minN2ForIgnition)
+                    {
+                        State = EngineState.Running;
+                    }
+                    break;
+
+                case EngineState.Running:
+                    // Seized状態への遷移はUpdateDamage()で直接設定されるため、ここでは燃料切れのみチェック
+                    if (!effectiveFuel)
+                    {
+                        State = ias > minWindmillSpeed_ms
+                            ? EngineState.Windmilling
+                            : EngineState.Off;
+                    }
+                    break;
+
+                case EngineState.Windmilling:
+                    if (ias < minWindmillSpeed_ms && N1 < takeOffN1 * 0.01f)
+                    {
+                        State = EngineState.Off;
+                    }
+                    // Windmill始動：燃料投入のみで再始動（速度とN2が十分なら）
+                    else if (effectiveFuel
+                             && N2 >= takeOffN2 * minN2ForIgnition
+                             && ias >= minWindmillSpeed_ms)
+                    {
+                        State = EngineState.Running;
+                    }
+                    // スターター使用による再始動（N2または速度が不足している場合）
+                    else if (starter && starterPowerAvailable)
+                    {
+                        State = EngineState.Starting;
+                    }
+                    break;
+
+                case EngineState.Seized:
+                    // 固定状態（Respawn/Explodeまで）
+                    break;
+            }
+
+            // 状態変更時の処理
+            if (prevState != State && isOwner)
+            {
+                // Running以外に遷移した時、適用済み推力を除去
+                if (prevState == EngineState.Running && State != EngineState.Running)
+                {
+                    if (SAVControl != null && appliedThrust != 0f && vehicleMass > 0f)
+                    {
+                        float appliedAcceleration = appliedThrust / vehicleMass;
+                        float currentThrottle = (float)SAVControl.GetProgramVariable("ThrottleStrength");
+                        SAVControl.SetProgramVariable("ThrottleStrength", currentThrottle - appliedAcceleration);
+                        appliedThrust = 0f;
+                    }
+                }
+
+                RequestSerialization();
+            }
+
+            // 自動スターターカット
+            if (autoStarterCutoff && starter && State == EngineState.Starting)
+            {
+                bool shouldCutoff = n1Start
+                    ? N1 >= idleN1 * starterCutoffThreshold
+                    : N2 >= idleN2 * starterCutoffThreshold;
+
+                if (shouldCutoff)
+                {
+                    starter = false;
+                    RequestSerialization();
+                }
+            }
+
+        }
+
+        // ========================================================================
+        // Windmilling抗力計算
+        // ========================================================================
+
+        private void UpdateWindmillingDrag(float dt)
+        {
+            if (SAVControl == null) return;
+
+            if (State == EngineState.Windmilling && N1 > takeOffN1 * 0.01f)
+            {
+                float airSpeed = (float)SAVControl.GetProgramVariable("AirSpeed");
+                float atmosphere = (float)SAVControl.GetProgramVariable("Atmosphere");
+
+                // TASをIASに変換
+                float ias = airSpeed * Mathf.Sqrt(atmosphere);
+
+                // KIASをm/sに変換
+                float windmillingDragRefSpeed_ms = TSFEUtil.FromKnots(windmillingDragReferenceSpeed);
+
+                // 速度²に比例する抗力（IASベース）
+                float speedRatio = ias / windmillingDragRefSpeed_ms;
+                float drag = windmillingDragCoefficient * (speedRatio * speedRatio);
+
+                // ExtraDragに累積適用
+                float currentDrag = (float)SAVControl.GetProgramVariable("ExtraDrag");
+                SAVControl.SetProgramVariable("ExtraDrag",
+                    currentDrag + drag - appliedWindmillingDrag);
+                appliedWindmillingDrag = drag;
+            }
+            else if (appliedWindmillingDrag != 0f)
+            {
+                // 抗力解除
+                float currentDrag = (float)SAVControl.GetProgramVariable("ExtraDrag");
+                SAVControl.SetProgramVariable("ExtraDrag", currentDrag - appliedWindmillingDrag);
+                appliedWindmillingDrag = 0f;
+            }
+        }
+
         public bool StarterPowerAvailable => CheckStarterPowerAvailable();
     }
 }

@@ -5,6 +5,28 @@ using VRC.SDKBase;
 
 namespace TSFE.SFEXT
 {
+    /// <summary>
+    /// APU状態
+    ///
+    /// 状態遷移:
+    /// - Off → Starting: run=true に変更（StartAPU()またはToggleAPU()）
+    /// - Starting → Running: N が starterTargetN * ratedN に到達
+    /// - Running → Stopping: run=false に変更（StopAPU()またはToggleAPU()）
+    /// - Stopping → Off: N が 0 に到達
+    /// - Stopping → Starting: run=true に変更（再始動）
+    ///
+    /// runフラグとの関係:
+    /// - run=true: Off/Stopping → Starting → Running
+    /// - run=false: Starting/Running → Stopping → Off
+    /// </summary>
+    public enum APUState
+    {
+        Off = 0,        // 完全停止（N=0、run=false）
+        Starting = 1,   // 始動中（スターター稼働、run=true、N上昇中）
+        Running = 2,    // 正常運転中（run=true、N=ratedN）
+        Stopping = 3    // 停止中（スプールダウン、run=false、N減少中）
+    }
+
     [UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
     public class SFEXT_AuxiliaryPowerUnit : UdonSharpBehaviour
     {
@@ -57,11 +79,28 @@ namespace TSFE.SFEXT
         [Tooltip("APU始動に必要な電源GameObject（バッテリーまたはGPU、null=電源不要）")]
         public GameObject powerSource;
 
+        [Header("高度制限")]
+        [Tooltip("APU最大作動高度 (メートル) - 現実: FL200 = 6096m")]
+        public float maxOperatingAltitude = 6096f;
+        [Tooltip("SaccAirVehicle参照（高度情報取得用）")]
+        public UdonSharpBehaviour SAVControl;
+
         [Header("状態インジケータ")]
         [Tooltip("APU起動中に有効化するGameObject（PowerBus/BleedAirBusからの参照用）")]
         public GameObject apuStartedIndicator;
 
-        [NonSerialized] public bool started, terminated;
+        // 状態管理
+        [UdonSynced] private int _apuStateInt = 0;
+
+        /// <summary>
+        /// APU状態（外部スクリプトから読み取り可能）
+        /// </summary>
+        public APUState State
+        {
+            get => (APUState)_apuStateInt;
+            private set { _apuStateInt = (int)value; }
+        }
+
         [UdonSynced] private bool run;
 
         // 内部状態
@@ -109,50 +148,133 @@ namespace TSFE.SFEXT
         public void SFEXT_G_Explode() { ResetStatus(); }
 
         private bool prevRun;
+        private APUState prevState;
         private float stateChangedTime;
+
         private void Update()
         {
             if (!initialized) return;
 
             float dt = Time.deltaTime;
 
-            if (run != prevRun)
-            {
-                Debug.Log($"[APU] State changed: run={run}, prevRun={prevRun}");
-                prevRun = run;
-                stateChangedTime = Time.time;
-                if (run) OnStart();
-                else OnShutdown();
-            }
-
-            var stateTime = Time.time - stateChangedTime;
+            // ========================================================================
+            // 状態遷移ロジック: runフラグに基づいて状態の整合性を毎フレーム強制
+            // ========================================================================
+            //
+            // run=true の場合:
+            //   - Off/Stopping → Starting に遷移（再始動可能）
+            //   - Starting → Running は Update_Starting() 内で自動遷移（N到達時）
+            //
+            // run=false の場合:
+            //   - Starting/Running → Stopping に遷移
+            //   - Stopping → Off は Update_Stopping() 内で自動遷移（N=0時）
+            //
             if (run)
             {
-                if (!started)
+                // run=true なら、Off/Stoppingから始動する
+                if (State == APUState.Off || State == APUState.Stopping)
                 {
-                    OnStarting(stateTime, dt);
-                }
-                else
-                {
-                    Update_Started(dt);
+                    if (State != prevState || !prevRun)
+                    {
+                        Debug.Log($"[APU] Starting requested (run=true, state={State})");
+                    }
+                    State = APUState.Starting;
                 }
             }
             else
             {
-                OnShuttingDown(stateTime, dt);
+                // run=false なら、Starting/Runningから停止する
+                if (State == APUState.Starting || State == APUState.Running)
+                {
+                    if (State != prevState || prevRun)
+                    {
+                        Debug.Log($"[APU] Stopping requested (run=false, state={State})");
+                    }
+                    State = APUState.Stopping;
+                }
+            }
+
+            prevRun = run;
+
+            // 状態変更検知
+            if (State != prevState)
+            {
+                Debug.Log($"[APU] State changed: {prevState} -> {State}");
+                prevState = State;
+                stateChangedTime = Time.time;
+            }
+
+            var stateTime = Time.time - stateChangedTime;
+
+            // 状態別処理
+            switch (State)
+            {
+                case APUState.Off:
+                    Update_Off(dt);
+                    break;
+                case APUState.Starting:
+                    Update_Starting(stateTime, dt);
+                    break;
+                case APUState.Running:
+                    Update_Running(dt);
+                    break;
+                case APUState.Stopping:
+                    Update_Stopping(dt);
+                    break;
             }
 
             UpdateSound();
             UpdateApuStartedIndicator();
         }
 
+        /// <summary>
+        /// APU始動を要求（AutoStarter等から呼ばれる）
+        ///
+        /// 動作:
+        /// - run=false → ToggleAPU()で run=true に変更（通常の始動）
+        /// - run=true かつ Stopping/Off状態 → 強制的にStartingに遷移（再始動高速化）
+        /// </summary>
         public void StartAPU()
         {
-            if (!run) ToggleAPU();
+            if (!isOwner) return;
+
+            // run=falseの場合、Toggleでtrueにする
+            if (!run)
+            {
+                ToggleAPU();
+            }
+            // run=trueだがStopping/Off状態の場合、強制的にStartingに遷移
+            else if (State == APUState.Off || State == APUState.Stopping)
+            {
+                Debug.Log($"[APU] StartAPU() forcing transition from {State} to Starting (run already true)");
+                State = APUState.Starting;
+                RequestSerialization();
+            }
         }
+
+        /// <summary>
+        /// APU停止を要求（AutoStarter等から呼ばれる）
+        ///
+        /// 動作:
+        /// - run=true → ToggleAPU()で run=false に変更（通常の停止）
+        /// - run=false かつ Starting/Running状態 → 強制的にStoppingに遷移（停止高速化）
+        /// </summary>
         public void StopAPU()
         {
-            if (run) ToggleAPU();
+            if (!isOwner) return;
+
+            // run=trueの場合、Toggleでfalseにする
+            if (run)
+            {
+                ToggleAPU();
+            }
+            // run=falseだがStarting/Running状態の場合、強制的にStoppingに遷移
+            else if (State == APUState.Starting || State == APUState.Running)
+            {
+                Debug.Log($"[APU] StopAPU() forcing transition from {State} to Stopping (run already false)");
+                State = APUState.Stopping;
+                RequestSerialization();
+            }
         }
         public void ToggleAPU()
         {
@@ -162,11 +284,21 @@ namespace TSFE.SFEXT
                 return;
             }
 
-            // 始動しようとしている場合は電源チェック
-            if (!run && !CheckPowerAvailable())
+            // 始動しようとしている場合は電源と高度をチェック
+            if (!run)
             {
-                Debug.LogWarning("[APU] Cannot start: No power available");
-                return;
+                if (!CheckPowerAvailable())
+                {
+                    Debug.LogWarning("[APU] Cannot start: No power available");
+                    return;
+                }
+
+                if (!CheckAltitudeWithinLimit())
+                {
+                    float currentAltitude = GetCurrentAltitude();
+                    Debug.LogWarning($"[APU] Cannot start: Altitude {currentAltitude:F0}m exceeds limit {maxOperatingAltitude:F0}m");
+                    return;
+                }
             }
 
             Debug.Log($"[APU] ToggleAPU called: run {run} -> {!run}");
@@ -191,11 +323,30 @@ namespace TSFE.SFEXT
         /// </summary>
         public bool PowerAvailable => CheckPowerAvailable();
 
+        /// <summary>
+        /// 現在の高度を取得（メートル）
+        /// </summary>
+        private float GetCurrentAltitude()
+        {
+            if (SAVControl == null) return 0f;
+            var altitudeObj = SAVControl.GetProgramVariable("Altitude");
+            if (altitudeObj == null) return 0f;
+            return (float)altitudeObj;
+        }
+
+        /// <summary>
+        /// 現在の高度がAPU作動限界内かチェック
+        /// </summary>
+        private bool CheckAltitudeWithinLimit()
+        {
+            float altitude = GetCurrentAltitude();
+            return altitude <= maxOperatingAltitude;
+        }
+
         private void ResetStatus()
         {
             run = false;
-            started = false;
-            terminated = true;
+            State = APUState.Off;
             N = 0f;
 
             // インジケータも初期化
@@ -205,16 +356,16 @@ namespace TSFE.SFEXT
             }
         }
 
-        private void OnStart()
-        {
-            Debug.Log("[APU] OnStart called");
-            terminated = false;
-            started = false;
+        // ===== 状態別Update =====
 
-            SetParticleEmission(exhaustEffect, true);
+        private void Update_Off(float dt)
+        {
+            // RPMを0に保持
+            N = 0f;
+            SetParticleEmission(exhaustEffect, false);
         }
 
-        private void OnStarting(float stateTime, float dt)
+        private void Update_Starting(float stateTime, float dt)
         {
             // 始動中に電源が切れたら停止
             if (!CheckPowerAvailable())
@@ -228,55 +379,65 @@ namespace TSFE.SFEXT
                 return;
             }
 
+            // エフェクト開始
+            SetParticleEmission(exhaustEffect, true);
+
             // N更新: 始動目標回転数まで上昇
             float targetN = ratedN * starterTargetN;
-            N = Mathf.MoveTowards(N, targetN, nStartupResponse * Mathf.Abs(targetN - N) * dt);
 
-            // 目標回転数到達で started に遷移
-            if (isOwner && N >= targetN * 0.99f)
+            // Stopping状態から再始動した場合、すでにtargetN以上のRPMがある可能性がある
+            if (N >= targetN * 0.99f)
             {
-                Debug.Log($"[APU] Starting complete, N={N:F0} RPM");
-                OnStarted();
+                // すでに目標RPMに達している → 即座にRunningに遷移
+                if (isOwner)
+                {
+                    Debug.Log($"[APU] Already at target RPM {N:F0} -> Running");
+                    State = APUState.Running;
+                }
+            }
+            else
+            {
+                // 目標RPMまで上昇
+                N = Mathf.MoveTowards(N, targetN, nStartupResponse * Mathf.Abs(targetN - N) * dt);
+
+                // 目標回転数到達でRunningに遷移
+                if (isOwner && N >= targetN * 0.99f)
+                {
+                    Debug.Log($"[APU] Starting complete, N={N:F0} RPM -> Running");
+                    State = APUState.Running;
+                }
             }
         }
 
-        private void OnStarted()
+        private void Update_Running(float dt)
         {
-            Debug.Log("[APU] OnStarted called - APU is now running");
-            started = true;
-            terminated = false;
-        }
+            // 高度超過チェック（稼働中に高度制限を超えたら自動停止）
+            if (isOwner && !CheckAltitudeWithinLimit())
+            {
+                float currentAltitude = GetCurrentAltitude();
+                Debug.LogWarning($"[APU] Altitude {currentAltitude:F0}m exceeded limit {maxOperatingAltitude:F0}m - auto shutdown");
+                run = false;
+                RequestSerialization();
+                return;
+            }
 
-        private void Update_Started(float dt)
-        {
             // N更新: 定格回転数まで上昇
             N = Mathf.MoveTowards(N, ratedN, nResponse * Mathf.Abs(ratedN - N) * dt);
         }
 
-        private void OnShutdown()
-        {
-            terminated = false;
-            started = false;
-        }
-
-        private void OnShuttingDown(float stateTime, float dt)
+        private void Update_Stopping(float dt)
         {
             // N更新: 0まで減少
             N = Mathf.MoveTowards(N, 0f, nDecreaseResponse * N * dt);
 
+            // RPMが0に達したらOffに遷移
             if (N <= 0.01f)
             {
-                OnTerminated();
+                Debug.Log("[APU] Stopping complete -> Off");
+                State = APUState.Off;
+                N = 0f;
+                SetParticleEmission(exhaustEffect, false);
             }
-        }
-
-        private void OnTerminated()
-        {
-            started = false;
-            terminated = true;
-            N = 0f;
-
-            SetParticleEmission(exhaustEffect, false);
         }
 
         private void UpdateSound()
@@ -291,7 +452,7 @@ namespace TSFE.SFEXT
             // apuStartSound: 始動音（0 ～ starterTargetRPM、startCrossFadeNからフェードアウト開始）
             if (apuStartSound)
             {
-                if (run && N > 0.01f && N < starterTargetRPM)
+                if (State == APUState.Starting && N > 0.01f && N < starterTargetRPM)
                 {
                     // 有効化（Volume0で）
                     if (!apuStartSound.gameObject.activeInHierarchy)
@@ -333,7 +494,9 @@ namespace TSFE.SFEXT
             // apuLoopSound: 運転音（startCrossFadeN以降、停止時はstopCrossFadeN以上）
             if (apuLoopSound)
             {
-                bool shouldPlay = (run && N >= startCrossFadeN) || (!run && N > 0.01f && N >= stopCrossFadeN);
+                bool isRunningPhase = (State == APUState.Starting || State == APUState.Running);
+                bool isStoppingPhase = (State == APUState.Stopping);
+                bool shouldPlay = (isRunningPhase && N >= startCrossFadeN) || (isStoppingPhase && N > 0.01f && N >= stopCrossFadeN);
 
                 if (shouldPlay)
                 {
@@ -345,7 +508,7 @@ namespace TSFE.SFEXT
                         apuLoopSound.Play();
                     }
 
-                    if (run && N >= startCrossFadeN)
+                    if (isRunningPhase && N >= startCrossFadeN)
                     {
                         // 始動・運転フェーズ
                         // ピッチ: startCrossFadeN(2500) ～ ratedN(10000) で 0.6 → 1.0 (RPMに比例)
@@ -364,7 +527,7 @@ namespace TSFE.SFEXT
                             apuLoopSound.volume = apuLoopVol * loopVolumeMultiplier;
                         }
                     }
-                    else if (!run && N > 0.01f && N >= stopCrossFadeN)
+                    else if (isStoppingPhase && N > 0.01f && N >= stopCrossFadeN)
                     {
                         // 停止時クロスフェード: stopCrossFadeN ～ ratedN でフェードアウト
                         float fadeOut = (N - stopCrossFadeN) / (ratedN - stopCrossFadeN);
@@ -390,7 +553,7 @@ namespace TSFE.SFEXT
             // apuStopSound: 停止音（停止シーケンス中、N > 0 から）
             if (apuStopSound)
             {
-                if (!run && N > 0.01f)
+                if (State == APUState.Stopping && N > 0.01f)
                 {
                     // 有効化（Volume0で）
                     if (!apuStopSound.gameObject.activeInHierarchy)
@@ -432,7 +595,7 @@ namespace TSFE.SFEXT
         {
             if (apuStartedIndicator != null)
             {
-                apuStartedIndicator.SetActive(started);
+                apuStartedIndicator.SetActive(State == APUState.Running);
             }
         }
 

@@ -137,52 +137,76 @@ namespace TSFE.DFUNC
                     if (start) SetState(STATE_APU_START);
                     break;
                 case STATE_APU_START:
-                    if (isOwner)
+                    if (!start)
+                    {
+                        // Abort requested - stop APU and return to OFF
+                        if (isOwner && apu) apu.StopAPU();
+                        SetState(STATE_OFF);
+                    }
+                    else if (isOwner)
                     {
                         if (stateChanged && apu) apu.StartAPU();
-                        if (!apu || apu.started) SetState(STATE_ENGINE_START);
+                        if (!apu || apu.State == TSFE.SFEXT.APUState.Running) SetState(STATE_ENGINE_START);
                     }
                     break;
                 case STATE_APU_STOP:
                     if (isOwner)
                     {
                         if (stateChanged && apu) apu.StopAPU();
-                        if (!apu || apu.terminated) SetState(start ? STATE_ON : STATE_OFF);
+                        if (!apu || apu.State == TSFE.SFEXT.APUState.Off) SetState(start ? STATE_ON : STATE_OFF);
                     }
                     break;
                 case STATE_ENGINE_START:
-                    if (isOwner)
+                    if (!start)
                     {
-                        var starterIndex = engines.Length - Mathf.FloorToInt(stateTime / engineStartInterval) - 1;
-                        if (starterIndex >= 0 && starterIndex < engines.Length)
-                            engines[starterIndex].SetProgramVariable("starter", true);
+                        // Abort requested - stop all engines and APU, return to OFF
+                        if (isOwner)
+                        {
+                            foreach (var engine in engines)
+                            {
+                                if (!engine) continue;
+                                engine.SetProgramVariable("starter", false);
+                                engine.SetProgramVariable("fuel", false);
+                            }
+                            if (apu) apu.StopAPU();
+                        }
+                        SetState(STATE_OFF);
                     }
-
-                    var allEngineStarted = true;
-                    foreach (var engine in engines)
+                    else
                     {
-                        if (!engine) continue;
-                        var n2 = (float)engine.GetProgramVariable("n2");
-                        var minN2 = (float)engine.GetProgramVariable("minN2");
-                        var n1 = (float)engine.GetProgramVariable("n1");
-                        var idleN1 = (float)engine.GetProgramVariable("idleN1");
-
-                        if (n2 >= minN2)
+                        if (isOwner)
                         {
-                            if (isOwner) engine.SetProgramVariable("fuel", true);
+                            var starterIndex = engines.Length - Mathf.FloorToInt(stateTime / engineStartInterval) - 1;
+                            if (starterIndex >= 0 && starterIndex < engines.Length)
+                                engines[starterIndex].SetProgramVariable("starter", true);
                         }
 
-                        if (n1 >= idleN1 * 0.9f)
+                        var allEngineStarted = true;
+                        foreach (var engine in engines)
                         {
-                            if (isOwner) engine.SetProgramVariable("starter", false);
+                            if (!engine) continue;
+                            var n2 = (float)engine.GetProgramVariable("n2");
+                            var minN2 = (float)engine.GetProgramVariable("minN2");
+                            var n1 = (float)engine.GetProgramVariable("n1");
+                            var idleN1 = (float)engine.GetProgramVariable("idleN1");
+
+                            if (n2 >= minN2)
+                            {
+                                if (isOwner) engine.SetProgramVariable("fuel", true);
+                            }
+
+                            if (n1 >= idleN1 * 0.9f)
+                            {
+                                if (isOwner) engine.SetProgramVariable("starter", false);
+                            }
+                            else
+                            {
+                                allEngineStarted = false;
+                            }
                         }
-                        else
-                        {
-                            allEngineStarted = false;
-                        }
+
+                        if (allEngineStarted) SetState(STATE_APU_STOP);
                     }
-
-                    if (allEngineStarted) SetState(STATE_APU_STOP);
                     break;
                 case STATE_ENGINE_STOP:
                     var index = engines.Length - Mathf.FloorToInt(stateTime / engineStopInterval) - 1;

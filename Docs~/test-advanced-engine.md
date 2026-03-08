@@ -1,14 +1,38 @@
 # SFEXT_AdvancedEngine テスト手順
 
-SFEXT_AdvancedEngineの動作確認手順です。
+SFEXT_AdvancedEngineの動作確認手順です。EngineTestBench Prefabを使用した包括的なテスト環境を提供します。
 
 ## 前提条件
 
 - Unity 2022.3+
 - VRChat Worlds SDK 3.7.0+
 - UdonSharp 1.x
+- TSFE パッケージ
 
-## テストシーン構築
+## クイックスタート（Prefab使用）
+
+### 1. EngineTestBench Prefabを配置
+
+1. `Packages/submodules/Tsuitachi-SF-Equipment/Sample/EngineTestBench.prefab` をシーンにドラッグ
+2. Play Modeに入る
+3. MockSAVControl InspectorでTest Scenariosボタンをクリック
+
+**これだけで包括的なテストが可能です！**
+
+### 2. テスト可能な項目
+
+- ✅ 地上始動（Ground Start）
+- ✅ Windmill始動（空中再始動）
+- ✅ APU高度制限テスト
+- ✅ エンジン状態遷移（Off/Windmilling/Starting/Running/Seized）
+- ✅ 火災・故障シミュレーション
+- ✅ 速度・高度・燃料システム
+
+詳細なテストシナリオは `test-scenarios.md` を参照してください。
+
+---
+
+## 手動セットアップ（カスタム環境）
 
 ### 1. 空のシーン作成
 
@@ -21,11 +45,22 @@ SFEXT_AdvancedEngineの動作確認手順です。
 
 1. 空の GameObject 作成: `MockSAVControl`
 2. `MockSAVControl` コンポーネントを追加
-3. 設定:
-   - Throttle Input: `0`
-   - Throttle Strength: `0`
-   - Air Speed: `0`
-   - Show Throttle Strength: `✓`
+3. 設定（デフォルト値）:
+   - **推力・スロットル**:
+     - Throttle Input: `0`
+     - Throttle Strength: `0` (エンジンが自動設定)
+   - **速度・高度**:
+     - Air Speed: `0 m/s`
+     - Altitude: `0 m`
+     - Atmosphere: `1.0` (海面)
+   - **燃料**:
+     - Fuel: `5000 kg`
+     - Full Fuel: `10000 kg`
+   - **物理**:
+     - Vehicle Rigidbody: (自動取得、または手動設定)
+     - Extra Drag: `0`
+     - Extra Lift: `0`
+     - Taxiing: `✓`
 
 #### エンジンオブジェクト作成
 
@@ -76,29 +111,114 @@ SFEXT_AdvancedEngine は `EntityControl` を必要とするため、ダミーを
 1. VRChat SDK > Build & Test
 2. Play Mode でテスト
 
-## テスト項目
+## MockSAVControl Inspector (Play Mode)
 
-### テスト1: エンジン始動シーケンス
+Play Mode中、MockSAVControl Inspectorで以下の機能が使用可能です：
+
+### Test Scenarios (Presets)
+
+ワンクリックで飛行状態を設定：
+- **Ground (0m, 0kt)** - 地上始動テスト
+- **Takeoff (0m, 150kt)** - 離陸テスト
+- **Cruise FL100 (300kt)** - 低高度巡航
+- **Cruise FL300 (450kt)** - 高高度巡航
+- **Windmill (FL150, 350kt)** - Windmill始動テスト
+- **APU Limit (FL200, 250kt)** - APU高度制限テスト
+
+### Quick Controls
+
+スライダーで速度・高度・燃料を調整：
+- **Airspeed**: 0-500 KIAS（ノット表示）
+- **Altitude**: 0-FL400（高度に応じて大気密度自動調整）
+- **Fuel**: Empty/25%/50%/Full
+
+### Current Status
+
+リアルタイムで以下を表示：
+- 速度（m/s, KIAS）
+- 高度（m, FL）
+- 大気密度、燃料残量
+- スロットル入力、推力
+- 追加抗力・揚力（Windmilling時など）
+
+---
+
+## エンジンInspector (Play Mode)
+
+SFEXT_AdvancedEngine Inspectorで以下の機能が使用可能です：
+
+### Engine Controls
+
+- **Starter ON/OFF** - スターター制御
+- **Fuel ON/OFF** - 燃料制御
+- **Reverser ON/OFF** - リバーサー制御
+- **Fire Handle** - 火災ハンドル（PULLED時、エンジン停止）
+- **Discharge Extinguisher** - 消火器作動
+
+### Engine State (Real-time)
+
+- **N1/N2** - RPMと%表示、プログレスバー
+- **EGT/ECT** - 温度（°C）、警告色表示
+- **Status** - EngineOn, Fire
+- **Starter System** - 電源状態、自動カットオフ情報
+- **Output** - 推力（N, m/s²）
+
+### Response Time Calculator
+
+時間とResponseパラメータを相互変換：
+- N2 Startup (Starter → 25%)
+- N2 Response (25% → Idle)
+- N1 Response (Idle → Take Off)
+- N1 Decrease (Take Off → Idle)
+
+---
+
+## 基本テスト項目
+
+### テスト1: 地上始動シーケンス（N2軸スターター）
 
 **目的**: N2 → N1 の順で正しく始動するか確認
 
 **手順**:
 1. Play Mode 開始
-2. 画面左上にデバッグUIが表示されることを確認
-3. `I` キー: Starter ON
+2. MockSAVControl Inspector → **"Ground (0m, 0kt)"** ボタン
+3. Engine Inspector → **Starter ON**
+   - EngineState: **Off → Starting**
    - N2 が 0 から上昇開始
-   - N2 が 30% 付近で停止（燃料なし）
-4. `F` キー: Fuel ON
-   - N2 が idle (50%) まで上昇
-   - 「Engine On」が true になる
+   - N2 が 25% (starterTargetN2Ratio) で停止（燃料なし）
+4. Engine Inspector → **Fuel ON**
+   - N2 が idle まで上昇
+   - N2 >= 15% (minN2ForIgnition) で EngineState: **Starting → Running**
    - N1 が idle まで上昇開始
-5. `I` キー: Starter OFF
+5. Engine Inspector → **Starter OFF** (または自動カットオフ)
    - N2/N1 が idle で安定
 
 **期待結果**:
-- N2 が先に上昇、50%到達で Engine On
-- N1 は Engine On 後に追従
-- EGT が 725°C 付近に到達
+- EngineState遷移: `Off → Starting → Running`
+- N2 が先に上昇、15%到達で EngineOn=true
+- N1 は EngineOn 後に追従
+- EGT が idleEGT 付近に到達
+- 自動スターターカットオフ機能が動作（N2 >= idleN2 * 0.95）
+
+### テスト1-B: N1軸スターター（T-4型）
+
+**前提**: Engine設定で `n1Start = true`
+
+**手順**:
+1. Play Mode 開始
+2. MockSAVControl Inspector → **"Ground"** ボタン
+3. Engine Inspector → **Starter ON**
+   - EngineState: **Off → Starting**
+   - N1 が上昇開始
+   - N1 が 15% (starterTargetN1Ratio) で停止
+   - N2 が N1 * startingN2toN1Ratio で追従
+4. N1 >= 10% (autoIgnitionN1Threshold) で **自動燃料投入**
+   - EngineState: **Starting → Running**
+5. 自動スターターカットオフ
+
+**期待結果**:
+- N1が先に上昇、自動燃料投入が動作
+- N2がN1に機械的に追従
 
 ### テスト2: スロットル操作
 

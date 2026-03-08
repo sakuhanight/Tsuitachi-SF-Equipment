@@ -61,7 +61,7 @@ namespace TSFE.SFEXT
                     if (IsEngineInop(engine)) continue;
 
                     operableCount++;
-                    if (engine.EngineOn) runningCount++;
+                    if (engine.State == TSFE.SFEXT.EngineState.Running) runningCount++;
                 }
 
                 return operableCount > 0 && runningCount >= operableCount;

@@ -154,7 +154,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 838249829218198175}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -203,8 +203,6 @@ MonoBehaviour:
   idleN2: 12100
   referenceN2: 17167
   takeOffN2: 20171
-  starterTargetN2: 0.25
-  minN2ForIgnition: 0.25
   n2Response: 0.15
   n2DecreaseResponse: 0.12
   n2StartupResponse: 0.3
@@ -223,6 +221,11 @@ MonoBehaviour:
   reverserRatio: 0.5
   reverserExtractResponse: 0.5
   reverserRetractResponse: 0.5
+  hasAfterburner: 0
+  afterburnerThreshold: 0.95
+  afterburnerThrustMultiplier: 1.5
+  afterburnerResponse: 2
+  enableFailureSystem: 1
   mtbFireAtContinuous: 2592000
   mtbFireAtOverheat: 90
   mtbMeltdownOnFire: 90
@@ -231,21 +234,51 @@ MonoBehaviour:
   continuousPowerTimeLimit: 120
   mtbFireAtContinuousPower: 60
   starterPowerSource: {fileID: 0}
+  n1Start: 0
+  starterTargetN2Ratio: 0.25
+  minN2ForIgnition: 0.15
+  starterTargetN1Ratio: 0.15
+  autoIgnitionN1Threshold: 0.1
+  startingN2toN1Ratio: 1.2
+  autoFuelInjection: 1
   autoStarterCutoff: 1
   starterCutoffThreshold: 0.95
+  useManualMass: 0
+  engineCalculationMass: 19000
+  enableDynamicThrust: 1
+  enableAsymmetricThrust: 0
+  enginePosition: {fileID: 0}
+  windmillingN1Ratio: 0.27
+  windmillingN2toN1Ratio: 2.7
+  windmillingMaxN1Ratio: 0.35
+  windmillingReferenceSpeed: 290
+  minimumWindmillingSpeed: 150
+  windmillingDragCoefficient: 0.15
+  windmillingDragReferenceSpeed: 290
   SAVControl: {fileID: 0}
   vehicleAnimator: {fileID: 0}
   n1ParameterName: n1
   n2ParameterName: n2
   reverserParameterName: reverser
   fireParameterName: fire
+  afterburnerParameterName: afterburner
   idleSound: {fileID: 6600136370263832361}
   insideSound: {fileID: 8398704252025731331}
   thrustSound: {fileID: 3425765409279683603}
   takeoffSound: {fileID: 6124236379981171775}
   reverserSound: {fileID: 8571659397244905791}
+  afterburnerSound: {fileID: 0}
+  idleVolumeMultiplier: 1
+  insideVolumeMultiplier: 1
+  thrustVolumeMultiplier: 1
+  takeoffVolumeMultiplier: 1
+  reverserVolumeMultiplier: 1
+  afterburnerVolumeMultiplier: 1
   fireBurnSound: {fileID: 7980056188313794165}
   fireAlarmSound: {fileID: 1902702794693403528}
+  dopplerCollider: {fileID: 0}
+  spatialBlendOutside: 1
+  spatialBlendInside: 0
   extinguishSuccessRate: 0.85
   fireHandleCutsFuel: 1
   fireHandleCutsHydraulics: 0
@@ -266,6 +299,7 @@ MonoBehaviour:
   fire: 0
   fireHandlePulled: 0
   fireAlarmMuted: 0
+  meltdown: 0
 --- !u!114 &6182470093478723566
 MonoBehaviour:
   m_ObjectHideFlags: 0

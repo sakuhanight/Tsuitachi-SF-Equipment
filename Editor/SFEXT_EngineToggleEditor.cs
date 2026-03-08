@@ -106,10 +106,11 @@ namespace TSFE.Editor
                             else
                             {
                                 operableCount++;
-                                if (engine.EngineOn) runningCount++;
+                                bool isRunning = (engine.State == TSFE.SFEXT.EngineState.Running);
+                                if (isRunning) runningCount++;
 
-                                GUI.color = engine.EngineOn ? Color.green : (engine.starter || engine.fuel ? Color.yellow : Color.red);
-                                string status = engine.EngineOn ? "RUNNING" : (engine.starter || engine.fuel ? "STARTING" : "OFF");
+                                GUI.color = isRunning ? Color.green : (engine.starter || engine.fuel ? Color.yellow : Color.red);
+                                string status = isRunning ? "RUNNING" : (engine.starter || engine.fuel ? "STARTING" : "OFF");
                                 EditorGUILayout.LabelField($"Engine {i + 1}", $"{status} | N2: {engine.N2:F0} RPM");
                                 GUI.color = Color.white;
                             }

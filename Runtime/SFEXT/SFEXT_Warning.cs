@@ -107,7 +107,7 @@ namespace TSFE.SFEXT
             }
             UpdateWarning(fuelLow, fuelCautionLights, null);
 
-            var apuOperating = apu && !apu.terminated;
+            var apuOperating = apu && apu.State != TSFE.SFEXT.APUState.Off;
             UpdateWarning(apuOperating, apuCautionLight, null);
 
             UpdateWarning(engineCaution || hydro || overheat || fire || fuelLow || apuOperating, masterCautionLights, null);

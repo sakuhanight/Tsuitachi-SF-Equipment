@@ -113,8 +113,26 @@ namespace TSFE.Editor
                     if (autoStarter.apu != null)
                     {
                         EditorGUILayout.LabelField("APU", EditorStyles.boldLabel);
-                        GUI.color = autoStarter.apu.started ? Color.green : (autoStarter.apu.terminated ? Color.red : Color.yellow);
-                        EditorGUILayout.LabelField("Status", autoStarter.apu.started ? "STARTED" : (autoStarter.apu.terminated ? "OFF" : "STARTING"));
+
+                        switch (autoStarter.apu.State)
+                        {
+                            case TSFE.SFEXT.APUState.Off:
+                                GUI.color = Color.red;
+                                EditorGUILayout.LabelField("Status", "OFF");
+                                break;
+                            case TSFE.SFEXT.APUState.Starting:
+                                GUI.color = Color.yellow;
+                                EditorGUILayout.LabelField("Status", "STARTING");
+                                break;
+                            case TSFE.SFEXT.APUState.Running:
+                                GUI.color = Color.green;
+                                EditorGUILayout.LabelField("Status", "RUNNING");
+                                break;
+                            case TSFE.SFEXT.APUState.Stopping:
+                                GUI.color = new Color(1f, 0.5f, 0f);
+                                EditorGUILayout.LabelField("Status", "STOPPING");
+                                break;
+                        }
                         GUI.color = Color.white;
                     }
                     else
@@ -142,10 +160,11 @@ namespace TSFE.Editor
                                 continue;
                             }
 
-                            if (engine.EngineOn) runningCount++;
+                            bool isRunning = (engine.State == TSFE.SFEXT.EngineState.Running);
+                            if (isRunning) runningCount++;
 
-                            GUI.color = engine.EngineOn ? Color.green : (engine.starter || engine.fuel ? Color.yellow : Color.red);
-                            string status = engine.EngineOn ? "RUNNING" : (engine.starter || engine.fuel ? "STARTING" : "OFF");
+                            GUI.color = isRunning ? Color.green : (engine.starter || engine.fuel ? Color.yellow : Color.red);
+                            string status = isRunning ? "RUNNING" : (engine.starter || engine.fuel ? "STARTING" : "OFF");
                             EditorGUILayout.LabelField($"Engine {i + 1}", $"{status} | N2: {engine.N2:F0} RPM");
                             GUI.color = Color.white;
                         }

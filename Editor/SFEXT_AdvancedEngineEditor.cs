@@ -132,8 +132,9 @@ namespace TSFE.Editor
 
                     // Status
                     EditorGUILayout.LabelField("Status", EditorStyles.boldLabel);
-                    GUI.color = engine.EngineOn ? Color.green : Color.gray;
-                    EditorGUILayout.LabelField("Engine Running", engine.EngineOn ? "YES" : "NO");
+                    bool isRunning = (engine.State == TSFE.SFEXT.EngineState.Running);
+                    GUI.color = isRunning ? Color.green : Color.gray;
+                    EditorGUILayout.LabelField("Engine Running", isRunning ? "YES" : "NO");
                     GUI.color = engine.fire ? Color.red : Color.white;
                     EditorGUILayout.LabelField("Fire", engine.fire ? "YES" : "NO");
                     GUI.color = Color.white;
@@ -178,13 +179,25 @@ namespace TSFE.Editor
                     EditorGUILayout.LabelField("Output", EditorStyles.boldLabel);
                     // 推力計算（エンジン本体と同じロジック）
                     float thrustRatio = 0f;
-                    if (engine.N1 >= engine.idleN1)
+                    float thrust = 0f;
+
+                    // Running状態の時のみ推力を計算
+                    if (engine.State == TSFE.SFEXT.EngineState.Running && engine.N1 >= 0.01f)
                     {
-                        float t = (engine.N1 - engine.idleN1) / (engine.takeOffN1 - engine.idleN1);
-                        thrustRatio = Mathf.Lerp(engine.idleThrustRatio, 1f, Mathf.Pow(t, engine.thrustCurve));
+                        if (engine.N1 < engine.idleN1)
+                        {
+                            // 0～idleN1: 線形に0～idleThrustRatioまで上昇
+                            thrustRatio = engine.idleThrustRatio * Mathf.Clamp01(engine.N1 / engine.idleN1);
+                        }
+                        else
+                        {
+                            // idleN1～takeOffN1: idleThrustRatio～100%まで曲線的に上昇
+                            float t = (engine.N1 - engine.idleN1) / (engine.takeOffN1 - engine.idleN1);
+                            thrustRatio = Mathf.Lerp(engine.idleThrustRatio, 1f, Mathf.Pow(t, engine.thrustCurve));
+                        }
+                        thrust = engine.maxThrust * thrustRatio;
+                        if (engine.reversing) thrust *= -engine.reverserRatio;
                     }
-                    float thrust = engine.maxThrust * thrustRatio;
-                    if (engine.reversing) thrust *= -engine.reverserRatio;
 
                     // 機体質量を取得して加速度換算表示
                     float vehicleMass = 19000f; // デフォルト値
@@ -212,6 +225,56 @@ namespace TSFE.Editor
                     else
                     {
                         EditorGUILayout.LabelField("Throttle Input", "SAVControl not set");
+                    }
+
+                    EditorGUILayout.Space();
+
+                    // Fuel Status
+                    EditorGUILayout.LabelField("Fuel", EditorStyles.boldLabel);
+                    if (engine.SAVControl != null)
+                    {
+                        float currentFuel = (float)engine.SAVControl.GetProgramVariable("Fuel");
+                        float fullFuel = (float)engine.SAVControl.GetProgramVariable("FullFuel");
+                        float fuelPct = fullFuel > 0f ? (currentFuel / fullFuel) * 100f : 0f;
+
+                        GUI.color = fuelPct < 10f ? Color.red : (fuelPct < 25f ? Color.yellow : Color.white);
+                        EditorGUILayout.LabelField("Remaining", $"{currentFuel:F1} kg ({fuelPct:F1}%)");
+                        GUI.color = Color.white;
+
+                        Rect fuelRect = GUILayoutUtility.GetRect(18, 18, GUILayout.ExpandWidth(true));
+                        EditorGUI.ProgressBar(fuelRect, fuelPct / 100f, $"{fuelPct:F1}%");
+
+                        if (engine.enableFuelConsumption && engine.State == TSFE.SFEXT.EngineState.Running)
+                        {
+                            // 現在の燃料消費率を表示（推力比率を再計算）
+                            float fuelThrustRatio = 0f;
+                            if (engine.N1 >= engine.idleN1)
+                            {
+                                float t = (engine.N1 - engine.idleN1) / (engine.takeOffN1 - engine.idleN1);
+                                fuelThrustRatio = Mathf.Lerp(engine.idleThrustRatio, 1f, Mathf.Pow(t, engine.thrustCurve));
+                            }
+                            float fuelFlow = Mathf.Lerp(engine.idleFuelFlow, engine.maxFuelFlow, fuelThrustRatio);
+
+                            EditorGUILayout.LabelField("Fuel Flow", $"{fuelFlow:F3} kg/s ({fuelFlow * 3600:F1} kg/h)");
+
+                            if (fuelFlow > 0f)
+                            {
+                                float remainingTime = currentFuel / fuelFlow;
+                                int minutes = Mathf.FloorToInt(remainingTime / 60f);
+                                int seconds = Mathf.FloorToInt(remainingTime % 60f);
+                                EditorGUILayout.LabelField("Estimated Range", $"{minutes}m {seconds}s at current power");
+                            }
+                        }
+                        else if (!engine.enableFuelConsumption)
+                        {
+                            GUI.color = Color.cyan;
+                            EditorGUILayout.LabelField("Fuel Consumption", "Disabled");
+                            GUI.color = Color.white;
+                        }
+                    }
+                    else
+                    {
+                        EditorGUILayout.LabelField("Fuel", "SAVControl not set");
                     }
 
                     EditorGUILayout.EndVertical();
@@ -281,8 +344,8 @@ namespace TSFE.Editor
                 // 初期化
                 if (previousStarterTime < 0f)
                 {
-                    previousStarterTime = CalculateTimeFromResponse(0f, engine.takeOffN2 * engine.starterTargetN2, engine.n2StartupResponse);
-                    previousFuelTime = CalculateTimeFromResponse(engine.takeOffN2 * engine.starterTargetN2, engine.idleN2, engine.n2Response);
+                    previousStarterTime = CalculateTimeFromResponse(0f, engine.takeOffN2 * engine.starterTargetN2Ratio, engine.n2StartupResponse);
+                    previousFuelTime = CalculateTimeFromResponse(engine.takeOffN2 * engine.starterTargetN2Ratio, engine.idleN2, engine.n2Response);
                     previousN1Time = CalculateTimeFromResponse(engine.idleN1, engine.takeOffN1, engine.n1Response);
                     previousN1DecTime = CalculateTimeFromResponse(engine.takeOffN1, engine.idleN1, engine.n1DecreaseResponse);
                     previousN2StartupResponse = engine.n2StartupResponse;
@@ -294,21 +357,21 @@ namespace TSFE.Editor
                 EditorGUILayout.Space();
 
                 // N2 Startup
-                EditorGUILayout.LabelField($"N2 Startup (Starter → {engine.starterTargetN2 * 100:F0}%)", EditorStyles.boldLabel);
+                EditorGUILayout.LabelField($"N2 Startup (Starter → {engine.starterTargetN2Ratio * 100:F0}%)", EditorStyles.boldLabel);
                 float starterTime = EditorGUILayout.FloatField("時間 (秒)", previousStarterTime);
                 EditorGUILayout.LabelField("Response", $"{engine.n2StartupResponse:F4}");
 
                 if (Mathf.Abs(starterTime - previousStarterTime) > 0.001f && starterTime > 0f)
                 {
                     Undo.RecordObject(engine, "Update n2StartupResponse from Time");
-                    engine.n2StartupResponse = CalculateResponseRate(0f, engine.takeOffN2 * engine.starterTargetN2, starterTime);
+                    engine.n2StartupResponse = CalculateResponseRate(0f, engine.takeOffN2 * engine.starterTargetN2Ratio, starterTime);
                     previousN2StartupResponse = engine.n2StartupResponse;
                     previousStarterTime = starterTime;
                     EditorUtility.SetDirty(engine);
                 }
                 else if (Mathf.Abs(engine.n2StartupResponse - previousN2StartupResponse) > 0.0001f)
                 {
-                    previousStarterTime = CalculateTimeFromResponse(0f, engine.takeOffN2 * engine.starterTargetN2, engine.n2StartupResponse);
+                    previousStarterTime = CalculateTimeFromResponse(0f, engine.takeOffN2 * engine.starterTargetN2Ratio, engine.n2StartupResponse);
                     previousN2StartupResponse = engine.n2StartupResponse;
                 }
 
@@ -316,21 +379,21 @@ namespace TSFE.Editor
 
                 // N2 Response
                 float idleN2Percent = engine.idleN2 / engine.takeOffN2 * 100f;
-                EditorGUILayout.LabelField($"N2 Response ({engine.starterTargetN2 * 100:F0}% → {idleN2Percent:F0}% Idle)", EditorStyles.boldLabel);
+                EditorGUILayout.LabelField($"N2 Response ({engine.starterTargetN2Ratio * 100:F0}% → {idleN2Percent:F0}% Idle)", EditorStyles.boldLabel);
                 float fuelTime = EditorGUILayout.FloatField("時間 (秒)", previousFuelTime);
                 EditorGUILayout.LabelField("Response", $"{engine.n2Response:F4}");
 
                 if (Mathf.Abs(fuelTime - previousFuelTime) > 0.001f && fuelTime > 0f)
                 {
                     Undo.RecordObject(engine, "Update n2Response from Time");
-                    engine.n2Response = CalculateResponseRate(engine.takeOffN2 * engine.starterTargetN2, engine.idleN2, fuelTime);
+                    engine.n2Response = CalculateResponseRate(engine.takeOffN2 * engine.starterTargetN2Ratio, engine.idleN2, fuelTime);
                     previousN2Response = engine.n2Response;
                     previousFuelTime = fuelTime;
                     EditorUtility.SetDirty(engine);
                 }
                 else if (Mathf.Abs(engine.n2Response - previousN2Response) > 0.0001f)
                 {
-                    previousFuelTime = CalculateTimeFromResponse(engine.takeOffN2 * engine.starterTargetN2, engine.idleN2, engine.n2Response);
+                    previousFuelTime = CalculateTimeFromResponse(engine.takeOffN2 * engine.starterTargetN2Ratio, engine.idleN2, engine.n2Response);
                     previousN2Response = engine.n2Response;
                 }
 

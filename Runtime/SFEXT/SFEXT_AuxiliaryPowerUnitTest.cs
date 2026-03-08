@@ -2,11 +2,13 @@ using UdonSharp;
 using UnityEngine;
 using UnityEngine.UI;
 using VRC.SDKBase;
+using TSFE.Utility;
 
 namespace TSFE.SFEXT
 {
     /// <summary>
     /// SFEXT_AuxiliaryPowerUnit のテスト用スクリプト
+    /// 高度制限テスト機能付き
     /// </summary>
     [UdonBehaviourSyncMode(BehaviourSyncMode.Manual)]
     public class SFEXT_AuxiliaryPowerUnitTest : UdonSharpBehaviour
@@ -51,8 +53,26 @@ namespace TSFE.SFEXT
             text += "Controls:\n";
             text += apuToggleKey + ": Toggle APU\n\n";
             text += "APU State:\n";
-            text += "Started: " + (apu.started ? "YES" : "NO") + "\n";
-            text += "Terminated: " + (apu.terminated ? "YES" : "NO");
+            text += "State: " + apu.State.ToString() + "\n";
+            text += "Running: " + (apu.State == APUState.Running ? "YES" : "NO") + "\n\n";
+
+            // 高度制限情報
+            if (apu.SAVControl != null)
+            {
+                var altitudeObj = apu.SAVControl.GetProgramVariable("Altitude");
+                if (altitudeObj != null)
+                {
+                    float altitude = (float)altitudeObj;
+                    float altFt = TSFEUtil.ToFeet(altitude);
+                    float maxAltFt = TSFEUtil.ToFeet(apu.maxOperatingAltitude);
+                    bool withinLimit = altitude <= apu.maxOperatingAltitude;
+
+                    text += "Altitude Limit:\n";
+                    text += "Current: " + altitude.ToString("F0") + " m (FL" + (altFt / 100).ToString("F0") + ")\n";
+                    text += "Max: " + apu.maxOperatingAltitude.ToString("F0") + " m (FL" + (maxAltFt / 100).ToString("F0") + ")\n";
+                    text += "Status: " + (withinLimit ? "OK" : "EXCEEDED") + "\n";
+                }
+            }
 
             debugText.text = text;
         }

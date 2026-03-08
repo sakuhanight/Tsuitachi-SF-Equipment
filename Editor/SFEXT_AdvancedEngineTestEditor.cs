@@ -181,8 +181,9 @@ namespace TSFE.Editor
                     EditorGUILayout.LabelField("ECT", $"{engine.ECT:F0} °C");
                     GUI.color = Color.white;
 
-                    GUI.color = engine.EngineOn ? Color.green : Color.gray;
-                    EditorGUILayout.LabelField("Running", engine.EngineOn ? "YES" : "NO");
+                    bool isRunning = (engine.State == TSFE.SFEXT.EngineState.Running);
+                    GUI.color = isRunning ? Color.green : Color.gray;
+                    EditorGUILayout.LabelField("Running", isRunning ? "YES" : "NO");
                     GUI.color = Color.white;
 
                     if (engine.fire)
@@ -215,7 +216,8 @@ namespace TSFE.Editor
             sb.AppendLine("=== SFEXT_AdvancedEngine Debug Info ===");
 
             // Basic state
-            sb.AppendLine($"Engine Running: {engine.EngineOn} | Starter: {engine.starter} | Fuel: {engine.fuel} | Reversing: {engine.reversing} | Fire: {engine.fire}");
+            bool isRunning = (engine.State == TSFE.SFEXT.EngineState.Running);
+            sb.AppendLine($"Engine State: {engine.State} | Running: {isRunning} | Starter: {engine.starter} | Fuel: {engine.fuel} | Reversing: {engine.reversing} | Fire: {engine.fire}");
 
             // RPM
             float n1Pct = engine.N1 / engine.takeOffN1 * 100f;
@@ -253,7 +255,7 @@ namespace TSFE.Editor
 
             // Configuration
             float idleN2Pct = engine.idleN2 / engine.takeOffN2 * 100f;
-            sb.AppendLine($"Config: starterTargetN2={engine.starterTargetN2:F2} ({engine.starterTargetN2 * 100:F0}%) | minN2ForIgnition={engine.minN2ForIgnition:F2} ({engine.minN2ForIgnition * 100:F0}%)");
+            sb.AppendLine($"Config: starterTargetN2Ratio={engine.starterTargetN2Ratio:F2} ({engine.starterTargetN2Ratio * 100:F0}%) | minN2ForIgnition={engine.minN2ForIgnition:F2} ({engine.minN2ForIgnition * 100:F0}%)");
             sb.AppendLine($"Config: idleN2={engine.idleN2:F1} RPM ({idleN2Pct:F1}%) | needsStarter threshold={engine.idleN2 * 0.99f:F1} RPM");
 
             sb.AppendLine("=== End Debug Info ===");
