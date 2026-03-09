@@ -87,7 +87,7 @@ namespace TSFE.SFEXT
 
         [Header("状態インジケータ")]
         [Tooltip("APU起動中に有効化するGameObject（PowerBus/BleedAirBusからの参照用）")]
-        public GameObject apuStartedIndicator;
+        public GameObject apuRunningIndicator;
 
         // 状態管理
         [UdonSynced] private int _apuStateInt = 0;
@@ -357,9 +357,9 @@ namespace TSFE.SFEXT
             N = 0f;
 
             // インジケータも初期化
-            if (apuStartedIndicator != null)
+            if (apuRunningIndicator != null)
             {
-                apuStartedIndicator.SetActive(false);
+                apuRunningIndicator.SetActive(false);
             }
         }
 
@@ -600,9 +600,9 @@ namespace TSFE.SFEXT
 
         private void UpdateApuStartedIndicator()
         {
-            if (apuStartedIndicator != null)
+            if (apuRunningIndicator != null)
             {
-                apuStartedIndicator.SetActive(State == APUState.Running);
+                apuRunningIndicator.SetActive(State == APUState.Running);
             }
         }
 

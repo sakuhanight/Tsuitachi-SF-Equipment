@@ -87,8 +87,8 @@ MonoBehaviour:
     PrefabModifications: []
     SerializationNodes: []
   _udonSharpBackingUdonBehaviour: {fileID: 1192821667613213555}
-  apuStartedIndicator: {fileID: 0}
-  engineOnIndicators:
+  apuRunningIndicator: {fileID: 0}
+  engineRunningIndicators:
   - {fileID: 0}
   - {fileID: 0}
   asuObject: {fileID: 0}

@@ -22,10 +22,10 @@ namespace TSFE.Utility
 
         [Header("バス電源入力（自動判定）")]
         [Tooltip("APU起動状態GameObject（APUが起動中に有効化されているGameObject）")]
-        public GameObject apuStartedIndicator;
+        public GameObject apuRunningIndicator;
 
         [Tooltip("エンジン起動状態GameObject配列（エンジンが起動中に有効化されているGameObject）")]
-        public GameObject[] engineOnIndicators;
+        public GameObject[] engineRunningIndicators;
 
         [Tooltip("GPU（地上電源）GameObject（接続中に有効化）")]
         public GameObject gpuObject;
@@ -160,15 +160,15 @@ namespace TSFE.Utility
             bool busPowered = false;
 
             // 1. APUチェック（最優先）
-            if (apuStartedIndicator != null && apuStartedIndicator.activeInHierarchy)
+            if (apuRunningIndicator != null && apuRunningIndicator.activeInHierarchy)
             {
                 busPowered = true;
             }
 
             // 2. エンジンチェック（1つでも動作していればOK）
-            if (!busPowered && engineOnIndicators != null)
+            if (!busPowered && engineRunningIndicators != null)
             {
-                foreach (var engineIndicator in engineOnIndicators)
+                foreach (var engineIndicator in engineRunningIndicators)
                 {
                     if (engineIndicator == null) continue;
                     if (engineIndicator.activeInHierarchy)

@@ -101,9 +101,9 @@ namespace TSFE.Editor
                     EditorGUILayout.LabelField("Power Sources", EditorStyles.miniBoldLabel);
 
                     // APU
-                    if (powerBus.apuStartedIndicator != null)
+                    if (powerBus.apuRunningIndicator != null)
                     {
-                        bool apuActive = powerBus.apuStartedIndicator.activeInHierarchy;
+                        bool apuActive = powerBus.apuRunningIndicator.activeInHierarchy;
                         using (new TSFEEditorUtil.ColorScope(apuActive ? TSFEEditorUtil.StateOnColor : TSFEEditorUtil.StateInactiveColor))
                         {
                             EditorGUILayout.LabelField("  APU", apuActive ? "RUNNING" : "OFF");
@@ -111,13 +111,13 @@ namespace TSFE.Editor
                     }
 
                     // エンジン
-                    if (powerBus.engineOnIndicators != null && powerBus.engineOnIndicators.Length > 0)
+                    if (powerBus.engineRunningIndicators != null && powerBus.engineRunningIndicators.Length > 0)
                     {
-                        for (int i = 0; i < powerBus.engineOnIndicators.Length; i++)
+                        for (int i = 0; i < powerBus.engineRunningIndicators.Length; i++)
                         {
-                            if (powerBus.engineOnIndicators[i] != null)
+                            if (powerBus.engineRunningIndicators[i] != null)
                             {
-                                bool engineActive = powerBus.engineOnIndicators[i].activeInHierarchy;
+                                bool engineActive = powerBus.engineRunningIndicators[i].activeInHierarchy;
                                 using (new TSFEEditorUtil.ColorScope(engineActive ? TSFEEditorUtil.StateOnColor : TSFEEditorUtil.StateInactiveColor))
                                 {
                                     EditorGUILayout.LabelField($"  Engine {i + 1}", engineActive ? "ON" : "OFF");

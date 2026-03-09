@@ -490,7 +490,7 @@ MonoBehaviour:
   stopVolumeMultiplier: 0.6
   exhaustEffect: {fileID: 0}
   powerSource: {fileID: 0}
-  apuStartedIndicator: {fileID: 7113650378941433460}
+  apuRunningIndicator: {fileID: 7113650378941433460}
 --- !u!114 &286660676585838507
 MonoBehaviour:
   m_ObjectHideFlags: 0

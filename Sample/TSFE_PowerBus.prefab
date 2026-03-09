@@ -59,8 +59,8 @@ MonoBehaviour:
   _udonSharpBackingUdonBehaviour: {fileID: 4565517359512289386}
   hasBattery: 1
   batteryPoweredIndicator: {fileID: 8127213242246526643}
-  apuStartedIndicator: {fileID: 0}
-  engineOnIndicators:
+  apuRunningIndicator: {fileID: 0}
+  engineRunningIndicators:
   - {fileID: 0}
   - {fileID: 0}
   gpuObject: {fileID: 0}

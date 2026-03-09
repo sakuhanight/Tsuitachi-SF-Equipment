@@ -14,10 +14,10 @@ namespace TSFE.Utility
     {
         [Header("ブリード空気源状態GameObject")]
         [Tooltip("APU起動状態GameObject（APUが起動中に有効化されているGameObject）")]
-        public GameObject apuStartedIndicator;
+        public GameObject apuRunningIndicator;
 
         [Tooltip("エンジン起動状態GameObject配列（エンジンが起動中に有効化されているGameObject）")]
-        public GameObject[] engineOnIndicators;
+        public GameObject[] engineRunningIndicators;
 
         [Tooltip("ASU（地上空調車）GameObject（接続中に有効化）")]
         public GameObject asuObject;
@@ -50,7 +50,7 @@ namespace TSFE.Utility
             bool available = false;
 
             // APUチェック
-            if (apuStartedIndicator != null && apuStartedIndicator.activeInHierarchy)
+            if (apuRunningIndicator != null && apuRunningIndicator.activeInHierarchy)
             {
                 available = true;
                 BleedAirAvailable = available;
@@ -59,9 +59,9 @@ namespace TSFE.Utility
             }
 
             // エンジンチェック（1つでも動作していればOK、クロスブリード）
-            if (engineOnIndicators != null)
+            if (engineRunningIndicators != null)
             {
-                foreach (var engineIndicator in engineOnIndicators)
+                foreach (var engineIndicator in engineRunningIndicators)
                 {
                     if (engineIndicator == null) continue;
                     if (engineIndicator.activeInHierarchy)

@@ -49,13 +49,32 @@ namespace TSFE.SFEXT
         [Tooltip("ピッチダウン状態")]
         public bool PitchDown = false;
 
-        [Header("エンジン状態（互換性）")]
-        [Tooltip("エンジン稼働中（SaccAirVehicle互換）")]
+        [Header("エンジン状態（SaccAirVehicle互換）")]
+        [Tooltip("エンジン稼働中")]
         public bool EngineOn = false;
+        [Tooltip("エンジン出力 (0-1)")]
+        [Range(0f, 1f)]
+        public float EngineOutput = 0f;
+
+        [Header("機体状態（SaccAirVehicle互換）")]
+        [Tooltip("機体耐久値 (0-100)")]
+        [Range(0f, 100f)]
+        public float Health = 100f;
+        [Tooltip("操縦中")]
+        public bool Piloting = false;
+
+        [Header("VRChat互換フィールド")]
+        [Tooltip("VRモード")]
+        public bool InVR = false;
+        [Tooltip("エディタモード")]
+        public bool InEditor = true;
+        [Tooltip("オーナー")]
+        public bool IsOwner = true;
 
         [Header("アニメーション・制御")]
         public Animator VehicleAnimator;
         public Transform ControlsRoot;
+        public UdonSharpBehaviour EntityControl;
 
         void Start()
         {

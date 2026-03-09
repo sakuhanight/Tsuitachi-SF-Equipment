@@ -1661,7 +1661,7 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4152658419085776992, guid: 79692b76419dd754baa8207bc352f555, type: 3}
-      propertyPath: apuStartedIndicator
+      propertyPath: apuRunningIndicator
       value: 
       objectReference: {fileID: 914953747925922742}
     - target: {fileID: 4152658419085776992, guid: 79692b76419dd754baa8207bc352f555, type: 3}
@@ -1669,11 +1669,11 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 4152658419085776992, guid: 79692b76419dd754baa8207bc352f555, type: 3}
     - target: {fileID: 4152658419085776992, guid: 79692b76419dd754baa8207bc352f555, type: 3}
-      propertyPath: engineOnIndicators.Array.data[0]
+      propertyPath: engineRunningIndicators.Array.data[0]
       value: 
       objectReference: {fileID: 1843360924283794535}
     - target: {fileID: 4152658419085776992, guid: 79692b76419dd754baa8207bc352f555, type: 3}
-      propertyPath: engineOnIndicators.Array.data[1]
+      propertyPath: engineRunningIndicators.Array.data[1]
       value: 
       objectReference: {fileID: 780567532222537540}
     - target: {fileID: 7634862577976627113, guid: 79692b76419dd754baa8207bc352f555, type: 3}
@@ -1872,7 +1872,7 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6339440820746807591, guid: fe57436554b529543b4e3278341e68ac, type: 3}
-      propertyPath: apuStartedIndicator
+      propertyPath: apuRunningIndicator
       value: 
       objectReference: {fileID: 914953747925922742}
     - target: {fileID: 6339440820746807591, guid: fe57436554b529543b4e3278341e68ac, type: 3}
@@ -1884,11 +1884,11 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 6339440820746807591, guid: fe57436554b529543b4e3278341e68ac, type: 3}
     - target: {fileID: 6339440820746807591, guid: fe57436554b529543b4e3278341e68ac, type: 3}
-      propertyPath: engineOnIndicators.Array.data[0]
+      propertyPath: engineRunningIndicators.Array.data[0]
       value: 
       objectReference: {fileID: 1843360924283794535}
     - target: {fileID: 6339440820746807591, guid: fe57436554b529543b4e3278341e68ac, type: 3}
-      propertyPath: engineOnIndicators.Array.data[1]
+      propertyPath: engineRunningIndicators.Array.data[1]
       value: 
       objectReference: {fileID: 780567532222537540}
     m_RemovedComponents: []
