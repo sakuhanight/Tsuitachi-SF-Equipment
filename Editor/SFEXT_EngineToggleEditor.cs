@@ -7,8 +7,8 @@ namespace TSFE.Editor
     [CustomEditor(typeof(TSFE.SFEXT.SFEXT_EngineToggle))]
     public class SFEXT_EngineToggleEditor : UnityEditor.Editor
     {
-        private bool showState = true;
-        private bool showSettings = false;
+        private const string PREF_SHOW_STATE = "TSFE.EngineToggleEditor.ShowState";
+        private const string PREF_SHOW_SETTINGS = "TSFE.EngineToggleEditor.ShowSettings";
 
         public override void OnInspectorGUI()
         {
@@ -31,9 +31,10 @@ namespace TSFE.Editor
                 EditorGUILayout.LabelField("Current State", EditorStyles.boldLabel);
 
                 bool allRunning = engineToggle.AllOperableEnginesRunning;
-                GUI.color = allRunning ? Color.green : Color.red;
-                EditorGUILayout.LabelField("Operable Engines", allRunning ? "ALL RUNNING" : "NOT ALL RUNNING", EditorStyles.boldLabel);
-                GUI.color = Color.white;
+                using (new TSFEEditorUtil.ColorScope(allRunning ? TSFEEditorUtil.StateOnColor : TSFEEditorUtil.StateOffColor))
+                {
+                    EditorGUILayout.LabelField("Operable Engines", allRunning ? "ALL RUNNING" : "NOT ALL RUNNING", EditorStyles.boldLabel);
+                }
 
                 EditorGUILayout.Space();
 
@@ -42,21 +43,23 @@ namespace TSFE.Editor
 
                 if (allRunning)
                 {
-                    GUI.color = Color.red;
-                    if (GUILayout.Button("Cut Engines", GUILayout.Height(40)))
+                    using (new TSFEEditorUtil.ColorScope(TSFEEditorUtil.StateOffColor))
                     {
-                        engineToggle.CutEngines();
+                        if (GUILayout.Button("Cut Engines", GUILayout.Height(40)))
+                        {
+                            engineToggle.CutEngines();
+                        }
                     }
-                    GUI.color = Color.white;
                 }
                 else
                 {
-                    GUI.color = Color.green;
-                    if (GUILayout.Button("Start Engines (via AutoStarter)", GUILayout.Height(40)))
+                    using (new TSFEEditorUtil.ColorScope(TSFEEditorUtil.StateOnColor))
                     {
-                        engineToggle.StartEngines();
+                        if (GUILayout.Button("Start Engines (via AutoStarter)", GUILayout.Height(40)))
+                        {
+                            engineToggle.StartEngines();
+                        }
                     }
-                    GUI.color = Color.white;
                 }
 
                 EditorGUILayout.Space();
@@ -73,7 +76,7 @@ namespace TSFE.Editor
                 EditorGUILayout.Space();
 
                 // エンジン状態詳細
-                showState = EditorGUILayout.Foldout(showState, "Engine Status (Real-time)", true, EditorStyles.foldoutHeader);
+                bool showState = TSFEEditorUtil.DrawPersistentFoldout(PREF_SHOW_STATE, "Engine Status (Real-time)", true);
                 if (showState)
                 {
                     EditorGUILayout.BeginVertical("box");
@@ -89,9 +92,10 @@ namespace TSFE.Editor
                             var engine = engineToggle.engines[i];
                             if (engine == null)
                             {
-                                GUI.color = Color.gray;
-                                EditorGUILayout.LabelField($"Engine {i + 1}", "Not Set");
-                                GUI.color = Color.white;
+                                using (new TSFEEditorUtil.ColorScope(TSFEEditorUtil.StateInactiveColor))
+                                {
+                                    EditorGUILayout.LabelField($"Engine {i + 1}", "Not Set");
+                                }
                                 continue;
                             }
 
@@ -99,9 +103,10 @@ namespace TSFE.Editor
                             if (isInop)
                             {
                                 inopCount++;
-                                GUI.color = Color.magenta;
-                                EditorGUILayout.LabelField($"Engine {i + 1}", $"INOP (Fire Handle Pulled) | N2: {engine.N2:F0} RPM");
-                                GUI.color = Color.white;
+                                using (new TSFEEditorUtil.ColorScope(Color.magenta))
+                                {
+                                    EditorGUILayout.LabelField($"Engine {i + 1}", $"INOP (Fire Handle Pulled) | N2: {engine.N2:F0} RPM");
+                                }
                             }
                             else
                             {
@@ -109,23 +114,27 @@ namespace TSFE.Editor
                                 bool isRunning = (engine.State == TSFE.SFEXT.EngineState.Running);
                                 if (isRunning) runningCount++;
 
-                                GUI.color = isRunning ? Color.green : (engine.starter || engine.fuel ? Color.yellow : Color.red);
+                                Color engineColor = isRunning ? TSFEEditorUtil.StateOnColor : (engine.starter || engine.fuel ? TSFEEditorUtil.StateWarningColor : TSFEEditorUtil.StateOffColor);
                                 string status = isRunning ? "RUNNING" : (engine.starter || engine.fuel ? "STARTING" : "OFF");
-                                EditorGUILayout.LabelField($"Engine {i + 1}", $"{status} | N2: {engine.N2:F0} RPM");
-                                GUI.color = Color.white;
+                                using (new TSFEEditorUtil.ColorScope(engineColor))
+                                {
+                                    EditorGUILayout.LabelField($"Engine {i + 1}", $"{status} | N2: {engine.N2:F0} RPM");
+                                }
                             }
                         }
 
                         EditorGUILayout.Space();
-                        GUI.color = Color.cyan;
-                        EditorGUILayout.LabelField("Summary", $"{runningCount}/{operableCount} operable running, {inopCount} INOP", EditorStyles.boldLabel);
-                        GUI.color = Color.white;
+                        using (new TSFEEditorUtil.ColorScope(TSFEEditorUtil.StateInfoColor))
+                        {
+                            EditorGUILayout.LabelField("Summary", $"{runningCount}/{operableCount} operable running, {inopCount} INOP", EditorStyles.boldLabel);
+                        }
                     }
                     else
                     {
-                        GUI.color = Color.red;
-                        EditorGUILayout.LabelField("Engines", "Not Set");
-                        GUI.color = Color.white;
+                        using (new TSFEEditorUtil.ColorScope(TSFEEditorUtil.StateOffColor))
+                        {
+                            EditorGUILayout.LabelField("Engines", "Not Set");
+                        }
                     }
 
                     EditorGUILayout.Space();
@@ -134,9 +143,11 @@ namespace TSFE.Editor
                     if (engineToggle.autoStarter != null)
                     {
                         EditorGUILayout.LabelField("AutoStarter", EditorStyles.boldLabel);
-                        GUI.color = GetAutoStarterStateColor(engineToggle.autoStarter.state);
-                        EditorGUILayout.LabelField("State", engineToggle.autoStarter.state.ToString());
-                        GUI.color = Color.white;
+                        TSFEEditorUtil.GetAutoStarterStateDisplay(engineToggle.autoStarter.state, out Color stateColor, out string stateText);
+                        using (new TSFEEditorUtil.ColorScope(stateColor))
+                        {
+                            EditorGUILayout.LabelField("State", stateText);
+                        }
 
                         if (!string.IsNullOrEmpty(engineToggle.autoStarter.statusMessage))
                         {
@@ -145,9 +156,10 @@ namespace TSFE.Editor
                     }
                     else
                     {
-                        GUI.color = Color.red;
-                        EditorGUILayout.LabelField("AutoStarter", "Not Set");
-                        GUI.color = Color.white;
+                        using (new TSFEEditorUtil.ColorScope(TSFEEditorUtil.StateOffColor))
+                        {
+                            EditorGUILayout.LabelField("AutoStarter", "Not Set");
+                        }
                     }
 
                     EditorGUILayout.EndVertical();
@@ -166,23 +178,11 @@ namespace TSFE.Editor
             EditorGUILayout.Space();
 
             // 設定表示
-            showSettings = EditorGUILayout.Foldout(showSettings, "Settings", true, EditorStyles.foldoutHeader);
+            bool showSettings = TSFEEditorUtil.DrawPersistentFoldout(PREF_SHOW_SETTINGS, "Settings", false);
             if (showSettings)
             {
                 DrawDefaultInspector();
             }
-        }
-
-        private Color GetAutoStarterStateColor(TSFE.SFEXT.AutoStarterSequenceState state)
-        {
-            if (state == TSFE.SFEXT.AutoStarterSequenceState.Idle)
-                return Color.gray;
-            else if (state == TSFE.SFEXT.AutoStarterSequenceState.Completed)
-                return Color.green;
-            else if (state == TSFE.SFEXT.AutoStarterSequenceState.Failed)
-                return Color.red;
-            else
-                return Color.yellow;
         }
     }
 }

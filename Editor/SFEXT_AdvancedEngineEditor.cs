@@ -65,12 +65,13 @@ namespace TSFE.Editor
                     // 火災制御
                     EditorGUILayout.LabelField("Fire Control", EditorStyles.boldLabel);
                     EditorGUILayout.BeginHorizontal();
-                    GUI.color = engine.fireHandlePulled ? Color.red : Color.white;
-                    if (GUILayout.Button(engine.fireHandlePulled ? "Fire Handle: PULLED" : "Fire Handle: NORMAL", GUILayout.Height(30)))
+                    using (new TSFEEditorUtil.ColorScope(engine.fireHandlePulled ? TSFEEditorUtil.StateOffColor : Color.white))
                     {
-                        engine.ToggleFireHandle();
+                        if (GUILayout.Button(engine.fireHandlePulled ? "Fire Handle: PULLED" : "Fire Handle: NORMAL", GUILayout.Height(30)))
+                        {
+                            engine.ToggleFireHandle();
+                        }
                     }
-                    GUI.color = Color.white;
                     EditorGUILayout.EndHorizontal();
 
                     EditorGUILayout.BeginHorizontal();
@@ -81,12 +82,13 @@ namespace TSFE.Editor
                     }
                     GUI.enabled = Application.isPlaying;
 
-                    GUI.color = engine.fireAlarmMuted ? Color.yellow : Color.white;
-                    if (GUILayout.Button(engine.fireAlarmMuted ? "Fire Alarm: MUTED" : "Fire Alarm: UNMUTED", GUILayout.Height(30)))
+                    using (new TSFEEditorUtil.ColorScope(engine.fireAlarmMuted ? TSFEEditorUtil.StateWarningColor : Color.white))
                     {
-                        engine.ToggleFireAlarmMute();
+                        if (GUILayout.Button(engine.fireAlarmMuted ? "Fire Alarm: MUTED" : "Fire Alarm: UNMUTED", GUILayout.Height(30)))
+                        {
+                            engine.ToggleFireAlarmMute();
+                        }
                     }
-                    GUI.color = Color.white;
                     EditorGUILayout.EndHorizontal();
 
                     EditorGUILayout.EndVertical();
@@ -119,25 +121,31 @@ namespace TSFE.Editor
 
                     // Temperatures
                     EditorGUILayout.LabelField("Temperatures", EditorStyles.boldLabel);
-                    Color egtColor = engine.EGT > engine.takeOffEGT ? Color.red : (engine.EGT > engine.continuousEGT ? Color.yellow : Color.white);
-                    Color ectColor = engine.ECT > engine.overheatECT ? Color.red : (engine.ECT > engine.continuousECT ? Color.yellow : Color.white);
+                    Color egtColor = engine.EGT > engine.takeOffEGT ? TSFEEditorUtil.StateOffColor : (engine.EGT > engine.continuousEGT ? TSFEEditorUtil.StateWarningColor : Color.white);
+                    Color ectColor = engine.ECT > engine.overheatECT ? TSFEEditorUtil.StateOffColor : (engine.ECT > engine.continuousECT ? TSFEEditorUtil.StateWarningColor : Color.white);
 
-                    GUI.color = egtColor;
-                    EditorGUILayout.LabelField("EGT (Exhaust Gas Temp)", $"{engine.EGT:F0} °C");
-                    GUI.color = ectColor;
-                    EditorGUILayout.LabelField("ECT (Engine Case Temp)", $"{engine.ECT:F0} °C");
-                    GUI.color = Color.white;
+                    using (new TSFEEditorUtil.ColorScope(egtColor))
+                    {
+                        EditorGUILayout.LabelField("EGT (Exhaust Gas Temp)", $"{engine.EGT:F0} °C");
+                    }
+                    using (new TSFEEditorUtil.ColorScope(ectColor))
+                    {
+                        EditorGUILayout.LabelField("ECT (Engine Case Temp)", $"{engine.ECT:F0} °C");
+                    }
 
                     EditorGUILayout.Space();
 
                     // Status
                     EditorGUILayout.LabelField("Status", EditorStyles.boldLabel);
                     bool isRunning = (engine.State == TSFE.SFEXT.EngineState.Running);
-                    GUI.color = isRunning ? Color.green : Color.gray;
-                    EditorGUILayout.LabelField("Engine Running", isRunning ? "YES" : "NO");
-                    GUI.color = engine.fire ? Color.red : Color.white;
-                    EditorGUILayout.LabelField("Fire", engine.fire ? "YES" : "NO");
-                    GUI.color = Color.white;
+                    using (new TSFEEditorUtil.ColorScope(isRunning ? TSFEEditorUtil.StateOnColor : TSFEEditorUtil.StateInactiveColor))
+                    {
+                        EditorGUILayout.LabelField("Engine Running", isRunning ? "YES" : "NO");
+                    }
+                    using (new TSFEEditorUtil.ColorScope(engine.fire ? TSFEEditorUtil.StateOffColor : Color.white))
+                    {
+                        EditorGUILayout.LabelField("Fire", engine.fire ? "YES" : "NO");
+                    }
 
                     EditorGUILayout.Space();
 
@@ -146,16 +154,15 @@ namespace TSFE.Editor
 
                     if (engine.starterPowerSource == null)
                     {
-                        GUI.color = Color.cyan;
-                        EditorGUILayout.LabelField("Mode", "Standalone (Self-Start)");
-                        GUI.color = Color.white;
+                        using (new TSFEEditorUtil.ColorScope(TSFEEditorUtil.StateInfoColor))
+                        {
+                            EditorGUILayout.LabelField("Mode", "Standalone (Self-Start)");
+                        }
                     }
                     else
                     {
                         bool powerAvailable = engine.StarterPowerAvailable;
-                        GUI.color = powerAvailable ? Color.green : Color.red;
-                        EditorGUILayout.LabelField("Starter Power", powerAvailable ? "AVAILABLE" : "NOT AVAILABLE");
-                        GUI.color = Color.white;
+                        TSFEEditorUtil.DrawStateLabel("Starter Power", powerAvailable, "AVAILABLE", "NOT AVAILABLE");
                         EditorGUILayout.LabelField("Power Source", engine.starterPowerSource.name);
                     }
 
@@ -168,9 +175,10 @@ namespace TSFE.Editor
                     }
                     else
                     {
-                        GUI.color = Color.yellow;
-                        EditorGUILayout.LabelField("Auto Cutoff", "Disabled (Manual only)");
-                        GUI.color = Color.white;
+                        using (new TSFEEditorUtil.ColorScope(TSFEEditorUtil.StateWarningColor))
+                        {
+                            EditorGUILayout.LabelField("Auto Cutoff", "Disabled (Manual only)");
+                        }
                     }
 
                     EditorGUILayout.Space();
@@ -237,9 +245,11 @@ namespace TSFE.Editor
                         float fullFuel = (float)engine.SAVControl.GetProgramVariable("FullFuel");
                         float fuelPct = fullFuel > 0f ? (currentFuel / fullFuel) * 100f : 0f;
 
-                        GUI.color = fuelPct < 10f ? Color.red : (fuelPct < 25f ? Color.yellow : Color.white);
-                        EditorGUILayout.LabelField("Remaining", $"{currentFuel:F1} kg ({fuelPct:F1}%)");
-                        GUI.color = Color.white;
+                        Color fuelColor = fuelPct < 10f ? TSFEEditorUtil.StateOffColor : (fuelPct < 25f ? TSFEEditorUtil.StateWarningColor : Color.white);
+                        using (new TSFEEditorUtil.ColorScope(fuelColor))
+                        {
+                            EditorGUILayout.LabelField("Remaining", $"{currentFuel:F1} kg ({fuelPct:F1}%)");
+                        }
 
                         Rect fuelRect = GUILayoutUtility.GetRect(18, 18, GUILayout.ExpandWidth(true));
                         EditorGUI.ProgressBar(fuelRect, fuelPct / 100f, $"{fuelPct:F1}%");
@@ -267,9 +277,10 @@ namespace TSFE.Editor
                         }
                         else if (!engine.enableFuelConsumption)
                         {
-                            GUI.color = Color.cyan;
-                            EditorGUILayout.LabelField("Fuel Consumption", "Disabled");
-                            GUI.color = Color.white;
+                            using (new TSFEEditorUtil.ColorScope(TSFEEditorUtil.StateInfoColor))
+                            {
+                                EditorGUILayout.LabelField("Fuel Consumption", "Disabled");
+                            }
                         }
                     }
                     else
@@ -317,9 +328,10 @@ namespace TSFE.Editor
                 float thrustKN = engine.maxThrust / 1000f;
 
                 EditorGUILayout.LabelField("Max Thrust", $"{engine.maxThrust:F0} N ({thrustKN:F1} kN)");
-                GUI.color = Color.cyan;
-                EditorGUILayout.LabelField("Sacc Equivalent", $"{thrustAcceleration:F2} m/s² (ThrottleStrength)");
-                GUI.color = Color.white;
+                using (new TSFEEditorUtil.ColorScope(TSFEEditorUtil.StateInfoColor))
+                {
+                    EditorGUILayout.LabelField("Sacc Equivalent", $"{thrustAcceleration:F2} m/s² (ThrottleStrength)");
+                }
 
                 // 推力重量比
                 float thrustToWeight = vehicleMass > 0f ? engine.maxThrust / (vehicleMass * 9.81f) : 0f;

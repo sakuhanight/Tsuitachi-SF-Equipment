@@ -70,26 +70,11 @@ namespace TSFE.Editor
                 GUIStyle stateStyle = new GUIStyle(EditorStyles.boldLabel);
                 stateStyle.fontSize = 14;
 
-                switch (apu.State)
+                TSFEEditorUtil.GetAPUStateDisplay(apu.State, out Color stateColor, out string stateText);
+                using (new TSFEEditorUtil.ColorScope(stateColor))
                 {
-                    case TSFE.SFEXT.APUState.Off:
-                        GUI.color = Color.gray;
-                        EditorGUILayout.LabelField("State", "OFF", stateStyle);
-                        break;
-                    case TSFE.SFEXT.APUState.Starting:
-                        GUI.color = Color.yellow;
-                        EditorGUILayout.LabelField("State", "STARTING", stateStyle);
-                        break;
-                    case TSFE.SFEXT.APUState.Running:
-                        GUI.color = Color.green;
-                        EditorGUILayout.LabelField("State", "RUNNING", stateStyle);
-                        break;
-                    case TSFE.SFEXT.APUState.Stopping:
-                        GUI.color = new Color(1f, 0.5f, 0f); // オレンジ
-                        EditorGUILayout.LabelField("State", "STOPPING", stateStyle);
-                        break;
+                    EditorGUILayout.LabelField("State", stateText, stateStyle);
                 }
-                GUI.color = Color.white;
 
                 EditorGUILayout.EndVertical();
 

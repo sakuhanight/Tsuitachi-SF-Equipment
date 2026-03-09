@@ -41,12 +41,13 @@ namespace TSFE.Editor
 
                     EditorGUILayout.Space();
 
-                    GUI.color = Color.cyan;
-                    if (GUILayout.Button($"Execute: {method}()", GUILayout.Height(40)))
+                    using (new TSFEEditorUtil.ColorScope(TSFEEditorUtil.StateInfoColor))
                     {
-                        methodCaller.Execute();
+                        if (GUILayout.Button($"Execute: {method}()", GUILayout.Height(40)))
+                        {
+                            methodCaller.Execute();
+                        }
                     }
-                    GUI.color = Color.white;
                 }
 
                 EditorGUILayout.EndVertical();

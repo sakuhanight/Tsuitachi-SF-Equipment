@@ -165,32 +165,39 @@ namespace TSFE.Editor
                         if (afterburnerLevelField != null)
                         {
                             float afterburnerLevel = (float)afterburnerLevelField.GetValue(engine);
-                            GUI.color = afterburnerLevel > 0.5f ? Color.cyan : Color.white;
-                            EditorGUILayout.LabelField("Afterburner", $"{afterburnerLevel * 100:F1}%");
-                            GUI.color = Color.white;
+                            Color abColor = afterburnerLevel > 0.5f ? TSFEEditorUtil.StateInfoColor : Color.white;
+                            using (new TSFEEditorUtil.ColorScope(abColor))
+                            {
+                                EditorGUILayout.LabelField("Afterburner", $"{afterburnerLevel * 100:F1}%");
+                            }
                         }
                     }
 
                     // 温度表示
-                    Color egtColor = engine.EGT > engine.takeOffEGT ? Color.red : (engine.EGT > engine.continuousEGT ? Color.yellow : Color.white);
-                    Color ectColor = engine.ECT > engine.overheatECT ? Color.red : (engine.ECT > engine.continuousECT ? Color.yellow : Color.white);
+                    Color egtColor = engine.EGT > engine.takeOffEGT ? TSFEEditorUtil.StateOffColor : (engine.EGT > engine.continuousEGT ? TSFEEditorUtil.StateWarningColor : Color.white);
+                    Color ectColor = engine.ECT > engine.overheatECT ? TSFEEditorUtil.StateOffColor : (engine.ECT > engine.continuousECT ? TSFEEditorUtil.StateWarningColor : Color.white);
 
-                    GUI.color = egtColor;
-                    EditorGUILayout.LabelField("EGT", $"{engine.EGT:F0} °C");
-                    GUI.color = ectColor;
-                    EditorGUILayout.LabelField("ECT", $"{engine.ECT:F0} °C");
-                    GUI.color = Color.white;
+                    using (new TSFEEditorUtil.ColorScope(egtColor))
+                    {
+                        EditorGUILayout.LabelField("EGT", $"{engine.EGT:F0} °C");
+                    }
+                    using (new TSFEEditorUtil.ColorScope(ectColor))
+                    {
+                        EditorGUILayout.LabelField("ECT", $"{engine.ECT:F0} °C");
+                    }
 
                     bool isRunning = (engine.State == TSFE.SFEXT.EngineState.Running);
-                    GUI.color = isRunning ? Color.green : Color.gray;
-                    EditorGUILayout.LabelField("Running", isRunning ? "YES" : "NO");
-                    GUI.color = Color.white;
+                    using (new TSFEEditorUtil.ColorScope(isRunning ? TSFEEditorUtil.StateOnColor : TSFEEditorUtil.StateInactiveColor))
+                    {
+                        EditorGUILayout.LabelField("Running", isRunning ? "YES" : "NO");
+                    }
 
                     if (engine.fire)
                     {
-                        GUI.color = Color.red;
-                        EditorGUILayout.LabelField("Fire", "YES");
-                        GUI.color = Color.white;
+                        using (new TSFEEditorUtil.ColorScope(TSFEEditorUtil.StateOffColor))
+                        {
+                            EditorGUILayout.LabelField("Fire", "YES");
+                        }
                     }
                 }
 
