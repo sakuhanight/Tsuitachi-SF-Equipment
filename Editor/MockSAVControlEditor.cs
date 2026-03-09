@@ -8,8 +8,8 @@ namespace TSFE.Editor
     [CustomEditor(typeof(TSFE.SFEXT.MockSAVControl))]
     public class MockSAVControlEditor : UnityEditor.Editor
     {
-        private bool showTestScenarios = true;
-        private bool showQuickControls = true;
+        private const string PREF_SHOW_TEST_SCENARIOS = "TSFE.MockSAVControlEditor.ShowTestScenarios";
+        private const string PREF_SHOW_QUICK_CONTROLS = "TSFE.MockSAVControlEditor.ShowQuickControls";
 
         public override void OnInspectorGUI()
         {
@@ -49,7 +49,7 @@ namespace TSFE.Editor
 
         private void DrawTestScenarios(TSFE.SFEXT.MockSAVControl mock)
         {
-            showTestScenarios = EditorGUILayout.Foldout(showTestScenarios, "Test Scenarios (Presets)", true, EditorStyles.foldoutHeader);
+            bool showTestScenarios = TSFEEditorUtil.DrawPersistentFoldout(PREF_SHOW_TEST_SCENARIOS, "Test Scenarios (Presets)", true);
             if (!showTestScenarios) return;
 
             EditorGUILayout.BeginVertical("box");
@@ -123,7 +123,7 @@ namespace TSFE.Editor
 
         private void DrawQuickControls(TSFE.SFEXT.MockSAVControl mock)
         {
-            showQuickControls = EditorGUILayout.Foldout(showQuickControls, "Quick Controls", true, EditorStyles.foldoutHeader);
+            bool showQuickControls = TSFEEditorUtil.DrawPersistentFoldout(PREF_SHOW_QUICK_CONTROLS, "Quick Controls", true);
             if (!showQuickControls) return;
 
             EditorGUILayout.BeginVertical("box");

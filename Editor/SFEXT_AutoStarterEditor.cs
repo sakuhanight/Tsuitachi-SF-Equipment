@@ -7,8 +7,8 @@ namespace TSFE.Editor
     [CustomEditor(typeof(TSFE.SFEXT.SFEXT_AutoStarter))]
     public class SFEXT_AutoStarterEditor : UnityEditor.Editor
     {
-        private bool showState = true;
-        private bool showSettings = false;
+        private const string PREF_SHOW_STATE = "TSFE.AutoStarterEditor.ShowState";
+        private const string PREF_SHOW_SETTINGS = "TSFE.AutoStarterEditor.ShowSettings";
 
         public override void OnInspectorGUI()
         {
@@ -31,9 +31,11 @@ namespace TSFE.Editor
                 EditorGUILayout.LabelField("Current State", EditorStyles.boldLabel);
 
                 // 状態に応じて色分け
-                GUI.color = GetStateColor(autoStarter.state);
-                EditorGUILayout.LabelField("Sequence State", autoStarter.state.ToString(), EditorStyles.boldLabel);
-                GUI.color = Color.white;
+                TSFEEditorUtil.GetAutoStarterStateDisplay(autoStarter.state, out Color stateColor, out string stateText);
+                using (new TSFEEditorUtil.ColorScope(stateColor))
+                {
+                    EditorGUILayout.LabelField("Sequence State", stateText, EditorStyles.boldLabel);
+                }
 
                 if (!string.IsNullOrEmpty(autoStarter.statusMessage))
                 {
@@ -50,12 +52,13 @@ namespace TSFE.Editor
                                 autoStarter.state == TSFE.SFEXT.AutoStarterSequenceState.Failed);
 
                 GUI.enabled = canStart;
-                GUI.color = Color.green;
-                if (GUILayout.Button("Start Sequence", GUILayout.Height(40)))
+                using (new TSFEEditorUtil.ColorScope(TSFEEditorUtil.StateOnColor))
                 {
-                    autoStarter.StartSequence();
+                    if (GUILayout.Button("Start Sequence", GUILayout.Height(40)))
+                    {
+                        autoStarter.StartSequence();
+                    }
                 }
-                GUI.color = Color.white;
                 GUI.enabled = Application.isPlaying;
 
                 EditorGUILayout.Space();
@@ -67,12 +70,13 @@ namespace TSFE.Editor
                                 autoStarter.state != TSFE.SFEXT.AutoStarterSequenceState.Failed);
 
                 GUI.enabled = canAbort;
-                GUI.color = Color.red;
-                if (GUILayout.Button("Abort Sequence", GUILayout.Height(30)))
+                using (new TSFEEditorUtil.ColorScope(TSFEEditorUtil.StateOffColor))
                 {
-                    autoStarter.AbortSequence();
+                    if (GUILayout.Button("Abort Sequence", GUILayout.Height(30)))
+                    {
+                        autoStarter.AbortSequence();
+                    }
                 }
-                GUI.color = Color.white;
                 GUI.enabled = Application.isPlaying;
 
                 if (GUILayout.Button("Reset", GUILayout.Height(30)))
@@ -87,7 +91,7 @@ namespace TSFE.Editor
                 EditorGUILayout.Space();
 
                 // コンポーネント状態表示
-                showState = EditorGUILayout.Foldout(showState, "Component Status (Real-time)", true, EditorStyles.foldoutHeader);
+                bool showState = TSFEEditorUtil.DrawPersistentFoldout(PREF_SHOW_STATE, "Component Status (Real-time)", true);
                 if (showState)
                 {
                     EditorGUILayout.BeginVertical("box");
@@ -96,15 +100,14 @@ namespace TSFE.Editor
                     if (autoStarter.powerBus != null)
                     {
                         EditorGUILayout.LabelField("PowerBus", EditorStyles.boldLabel);
-                        GUI.color = autoStarter.powerBus.BatteryOn ? Color.green : Color.red;
-                        EditorGUILayout.LabelField("Battery", autoStarter.powerBus.BatteryOn ? "ON" : "OFF");
-                        GUI.color = Color.white;
+                        TSFEEditorUtil.DrawStateLabel("Battery", autoStarter.powerBus.BatteryOn);
                     }
                     else
                     {
-                        GUI.color = Color.yellow;
-                        EditorGUILayout.LabelField("PowerBus", "Not Set");
-                        GUI.color = Color.white;
+                        using (new TSFEEditorUtil.ColorScope(TSFEEditorUtil.StateWarningColor))
+                        {
+                            EditorGUILayout.LabelField("PowerBus", "Not Set");
+                        }
                     }
 
                     EditorGUILayout.Space();
@@ -114,32 +117,18 @@ namespace TSFE.Editor
                     {
                         EditorGUILayout.LabelField("APU", EditorStyles.boldLabel);
 
-                        switch (autoStarter.apu.State)
+                        TSFEEditorUtil.GetAPUStateDisplay(autoStarter.apu.State, out Color apuColor, out string apuText);
+                        using (new TSFEEditorUtil.ColorScope(apuColor))
                         {
-                            case TSFE.SFEXT.APUState.Off:
-                                GUI.color = Color.red;
-                                EditorGUILayout.LabelField("Status", "OFF");
-                                break;
-                            case TSFE.SFEXT.APUState.Starting:
-                                GUI.color = Color.yellow;
-                                EditorGUILayout.LabelField("Status", "STARTING");
-                                break;
-                            case TSFE.SFEXT.APUState.Running:
-                                GUI.color = Color.green;
-                                EditorGUILayout.LabelField("Status", "RUNNING");
-                                break;
-                            case TSFE.SFEXT.APUState.Stopping:
-                                GUI.color = new Color(1f, 0.5f, 0f);
-                                EditorGUILayout.LabelField("Status", "STOPPING");
-                                break;
+                            EditorGUILayout.LabelField("Status", apuText);
                         }
-                        GUI.color = Color.white;
                     }
                     else
                     {
-                        GUI.color = Color.red;
-                        EditorGUILayout.LabelField("APU", "Not Set");
-                        GUI.color = Color.white;
+                        using (new TSFEEditorUtil.ColorScope(TSFEEditorUtil.StateOffColor))
+                        {
+                            EditorGUILayout.LabelField("APU", "Not Set");
+                        }
                     }
 
                     EditorGUILayout.Space();
@@ -154,31 +143,36 @@ namespace TSFE.Editor
                             var engine = autoStarter.engines[i];
                             if (engine == null)
                             {
-                                GUI.color = Color.gray;
-                                EditorGUILayout.LabelField($"Engine {i + 1}", "Not Set");
-                                GUI.color = Color.white;
+                                using (new TSFEEditorUtil.ColorScope(TSFEEditorUtil.StateInactiveColor))
+                                {
+                                    EditorGUILayout.LabelField($"Engine {i + 1}", "Not Set");
+                                }
                                 continue;
                             }
 
                             bool isRunning = (engine.State == TSFE.SFEXT.EngineState.Running);
                             if (isRunning) runningCount++;
 
-                            GUI.color = isRunning ? Color.green : (engine.starter || engine.fuel ? Color.yellow : Color.red);
+                            Color engineColor = isRunning ? TSFEEditorUtil.StateOnColor : (engine.starter || engine.fuel ? TSFEEditorUtil.StateWarningColor : TSFEEditorUtil.StateOffColor);
                             string status = isRunning ? "RUNNING" : (engine.starter || engine.fuel ? "STARTING" : "OFF");
-                            EditorGUILayout.LabelField($"Engine {i + 1}", $"{status} | N2: {engine.N2:F0} RPM");
-                            GUI.color = Color.white;
+                            using (new TSFEEditorUtil.ColorScope(engineColor))
+                            {
+                                EditorGUILayout.LabelField($"Engine {i + 1}", $"{status} | N2: {engine.N2:F0} RPM");
+                            }
                         }
 
                         EditorGUILayout.Space();
-                        GUI.color = Color.cyan;
-                        EditorGUILayout.LabelField("Total", $"{runningCount}/{autoStarter.engines.Length} running", EditorStyles.boldLabel);
-                        GUI.color = Color.white;
+                        using (new TSFEEditorUtil.ColorScope(TSFEEditorUtil.StateInfoColor))
+                        {
+                            EditorGUILayout.LabelField("Total", $"{runningCount}/{autoStarter.engines.Length} running", EditorStyles.boldLabel);
+                        }
                     }
                     else
                     {
-                        GUI.color = Color.red;
-                        EditorGUILayout.LabelField("Engines", "Not Set");
-                        GUI.color = Color.white;
+                        using (new TSFEEditorUtil.ColorScope(TSFEEditorUtil.StateOffColor))
+                        {
+                            EditorGUILayout.LabelField("Engines", "Not Set");
+                        }
                     }
 
                     EditorGUILayout.EndVertical();
@@ -197,23 +191,11 @@ namespace TSFE.Editor
             EditorGUILayout.Space();
 
             // 設定表示
-            showSettings = EditorGUILayout.Foldout(showSettings, "Settings", true, EditorStyles.foldoutHeader);
+            bool showSettings = TSFEEditorUtil.DrawPersistentFoldout(PREF_SHOW_SETTINGS, "Settings", false);
             if (showSettings)
             {
                 DrawDefaultInspector();
             }
-        }
-
-        private Color GetStateColor(TSFE.SFEXT.AutoStarterSequenceState state)
-        {
-            if (state == TSFE.SFEXT.AutoStarterSequenceState.Idle)
-                return Color.gray;
-            else if (state == TSFE.SFEXT.AutoStarterSequenceState.Completed)
-                return Color.green;
-            else if (state == TSFE.SFEXT.AutoStarterSequenceState.Failed)
-                return Color.red;
-            else
-                return Color.yellow;
         }
     }
 }

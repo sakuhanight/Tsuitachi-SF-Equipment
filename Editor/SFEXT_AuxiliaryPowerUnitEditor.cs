@@ -7,10 +7,10 @@ namespace TSFE.Editor
     [CustomEditor(typeof(TSFE.SFEXT.SFEXT_AuxiliaryPowerUnit))]
     public class SFEXT_AuxiliaryPowerUnitEditor : UnityEditor.Editor
     {
-        private bool showControls = true;
-        private bool showState = true;
-        private bool showTimeCalculator = false;
-        private bool showSettings = false;
+        private const string PREF_SHOW_CONTROLS = "TSFE.APUEditor.ShowControls";
+        private const string PREF_SHOW_STATE = "TSFE.APUEditor.ShowState";
+        private const string PREF_SHOW_TIME_CALC = "TSFE.APUEditor.ShowTimeCalculator";
+        private const string PREF_SHOW_SETTINGS = "TSFE.APUEditor.ShowSettings";
 
         public override void OnInspectorGUI()
         {
@@ -24,7 +24,7 @@ namespace TSFE.Editor
             // Play Mode中のみコントロール表示
             if (Application.isPlaying)
             {
-                showControls = EditorGUILayout.Foldout(showControls, "APU Controls (Play Mode)", true, EditorStyles.foldoutHeader);
+                bool showControls = TSFEEditorUtil.DrawPersistentFoldout(PREF_SHOW_CONTROLS, "APU Controls (Play Mode)", true);
                 if (showControls)
                 {
                     EditorGUILayout.BeginVertical("box");
@@ -52,7 +52,7 @@ namespace TSFE.Editor
 
                 EditorGUILayout.Space();
 
-                showState = EditorGUILayout.Foldout(showState, "APU State (Real-time)", true, EditorStyles.foldoutHeader);
+                bool showState = TSFEEditorUtil.DrawPersistentFoldout(PREF_SHOW_STATE, "APU State (Real-time)", true);
                 if (showState)
                 {
                     EditorGUILayout.BeginVertical("box");
@@ -61,53 +61,31 @@ namespace TSFE.Editor
                     EditorGUILayout.LabelField("Power System", EditorStyles.boldLabel);
                     if (apu.powerSource == null)
                     {
-                        GUI.color = Color.cyan;
-                        EditorGUILayout.LabelField("Mode", "Standalone (No Power Required)");
-                        GUI.color = Color.white;
+                        using (new TSFEEditorUtil.ColorScope(TSFEEditorUtil.StateInfoColor))
+                        {
+                            EditorGUILayout.LabelField("Mode", "Standalone (No Power Required)");
+                        }
                     }
                     else
                     {
                         bool powerAvailable = apu.PowerAvailable;
-                        GUI.color = powerAvailable ? Color.green : Color.red;
-                        EditorGUILayout.LabelField("Power", powerAvailable ? "AVAILABLE" : "NOT AVAILABLE");
-                        GUI.color = Color.white;
+                        TSFEEditorUtil.DrawStateLabel("Power", powerAvailable, "AVAILABLE", "NOT AVAILABLE");
                         EditorGUILayout.LabelField("Power Source", apu.powerSource.name);
                     }
 
                     EditorGUILayout.Space();
 
-                    // Status - APUState enumを直接読み取る
+                    // Status - APUState表示
                     EditorGUILayout.LabelField("Status", EditorStyles.boldLabel);
 
-                    // Get private _apuStateInt field via reflection
-                    var apuStateField = typeof(TSFE.SFEXT.SFEXT_AuxiliaryPowerUnit).GetField("_apuStateInt", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                    int apuStateInt = apuStateField != null ? (int)apuStateField.GetValue(apu) : 0;
-                    TSFE.SFEXT.APUState apuState = (TSFE.SFEXT.APUState)apuStateInt;
-
-                    // APUState表示（大きく、カラー付き）
                     GUIStyle stateStyle = new GUIStyle(EditorStyles.boldLabel);
                     stateStyle.fontSize = 14;
 
-                    switch (apuState)
+                    TSFEEditorUtil.GetAPUStateDisplay(apu.State, out Color stateColor, out string stateText);
+                    using (new TSFEEditorUtil.ColorScope(stateColor))
                     {
-                        case TSFE.SFEXT.APUState.Off:
-                            GUI.color = Color.gray;
-                            EditorGUILayout.LabelField("APU State", "OFF", stateStyle);
-                            break;
-                        case TSFE.SFEXT.APUState.Starting:
-                            GUI.color = Color.yellow;
-                            EditorGUILayout.LabelField("APU State", "STARTING", stateStyle);
-                            break;
-                        case TSFE.SFEXT.APUState.Running:
-                            GUI.color = Color.green;
-                            EditorGUILayout.LabelField("APU State", "RUNNING", stateStyle);
-                            break;
-                        case TSFE.SFEXT.APUState.Stopping:
-                            GUI.color = new Color(1f, 0.5f, 0f); // オレンジ
-                            EditorGUILayout.LabelField("APU State", "STOPPING", stateStyle);
-                            break;
+                        EditorGUILayout.LabelField("APU State", stateText, stateStyle);
                     }
-                    GUI.color = Color.white;
 
                     EditorGUILayout.Space();
 
@@ -118,10 +96,10 @@ namespace TSFE.Editor
                     var runField = typeof(TSFE.SFEXT.SFEXT_AuxiliaryPowerUnit).GetField("run", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
                     bool run = runField != null ? (bool)runField.GetValue(apu) : false;
 
-                    GUI.color = run ? Color.cyan : Color.gray;
-                    EditorGUILayout.LabelField("  run (UdonSynced)", run.ToString());
-
-                    GUI.color = Color.white;
+                    using (new TSFEEditorUtil.ColorScope(run ? TSFEEditorUtil.StateInfoColor : TSFEEditorUtil.StateInactiveColor))
+                    {
+                        EditorGUILayout.LabelField("  run (UdonSynced)", run.ToString());
+                    }
 
                     EditorGUILayout.Space();
 
@@ -149,20 +127,25 @@ namespace TSFE.Editor
                     EditorGUILayout.LabelField("Audio Sources", EditorStyles.boldLabel);
                     if (apu.apuStartSound != null)
                     {
-                        GUI.color = apu.apuStartSound.isPlaying ? Color.green : Color.gray;
-                        EditorGUILayout.LabelField("Start Sound", $"{(apu.apuStartSound.isPlaying ? "Playing" : "Stopped")} | Vol: {apu.apuStartSound.volume:F2} | Pitch: {apu.apuStartSound.pitch:F2}");
+                        using (new TSFEEditorUtil.ColorScope(apu.apuStartSound.isPlaying ? TSFEEditorUtil.StateOnColor : TSFEEditorUtil.StateInactiveColor))
+                        {
+                            EditorGUILayout.LabelField("Start Sound", $"{(apu.apuStartSound.isPlaying ? "Playing" : "Stopped")} | Vol: {apu.apuStartSound.volume:F2} | Pitch: {apu.apuStartSound.pitch:F2}");
+                        }
                     }
                     if (apu.apuLoopSound != null)
                     {
-                        GUI.color = apu.apuLoopSound.isPlaying ? Color.green : Color.gray;
-                        EditorGUILayout.LabelField("Loop Sound", $"{(apu.apuLoopSound.isPlaying ? "Playing" : "Stopped")} | Vol: {apu.apuLoopSound.volume:F2} | Pitch: {apu.apuLoopSound.pitch:F2}");
+                        using (new TSFEEditorUtil.ColorScope(apu.apuLoopSound.isPlaying ? TSFEEditorUtil.StateOnColor : TSFEEditorUtil.StateInactiveColor))
+                        {
+                            EditorGUILayout.LabelField("Loop Sound", $"{(apu.apuLoopSound.isPlaying ? "Playing" : "Stopped")} | Vol: {apu.apuLoopSound.volume:F2} | Pitch: {apu.apuLoopSound.pitch:F2}");
+                        }
                     }
                     if (apu.apuStopSound != null)
                     {
-                        GUI.color = apu.apuStopSound.isPlaying ? Color.green : Color.gray;
-                        EditorGUILayout.LabelField("Stop Sound", $"{(apu.apuStopSound.isPlaying ? "Playing" : "Stopped")} | Vol: {apu.apuStopSound.volume:F2} | Pitch: {apu.apuStopSound.pitch:F2}");
+                        using (new TSFEEditorUtil.ColorScope(apu.apuStopSound.isPlaying ? TSFEEditorUtil.StateOnColor : TSFEEditorUtil.StateInactiveColor))
+                        {
+                            EditorGUILayout.LabelField("Stop Sound", $"{(apu.apuStopSound.isPlaying ? "Playing" : "Stopped")} | Vol: {apu.apuStopSound.volume:F2} | Pitch: {apu.apuStopSound.pitch:F2}");
+                        }
                     }
-                    GUI.color = Color.white;
 
                     EditorGUILayout.EndVertical();
                 }
@@ -180,7 +163,7 @@ namespace TSFE.Editor
             EditorGUILayout.Space();
 
             // Time Calculator (startup/shutdown time display)
-            showTimeCalculator = EditorGUILayout.Foldout(showTimeCalculator, "Calculated Times (Read-only)", true, EditorStyles.foldoutHeader);
+            bool showTimeCalculator = TSFEEditorUtil.DrawPersistentFoldout(PREF_SHOW_TIME_CALC, "Calculated Times (Read-only)", false);
             if (showTimeCalculator)
             {
                 EditorGUILayout.BeginVertical("box");
@@ -211,9 +194,10 @@ namespace TSFE.Editor
 
                 // Total startup time
                 float totalStartupTime = startupPhase1Time + startupPhase2Time;
-                GUI.color = Color.cyan;
-                EditorGUILayout.LabelField("合計始動時間", $"{totalStartupTime:F1} 秒", EditorStyles.boldLabel);
-                GUI.color = Color.white;
+                using (new TSFEEditorUtil.ColorScope(TSFEEditorUtil.StateInfoColor))
+                {
+                    EditorGUILayout.LabelField("合計始動時間", $"{totalStartupTime:F1} 秒", EditorStyles.boldLabel);
+                }
 
                 EditorGUILayout.Space();
 
@@ -244,7 +228,7 @@ namespace TSFE.Editor
 
             EditorGUILayout.Space();
 
-            showSettings = EditorGUILayout.Foldout(showSettings, "Settings", true, EditorStyles.foldoutHeader);
+            bool showSettings = TSFEEditorUtil.DrawPersistentFoldout(PREF_SHOW_SETTINGS, "Settings", false);
             if (showSettings)
             {
                 DrawDefaultInspector();

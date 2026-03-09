@@ -7,10 +7,10 @@ namespace TSFE.Editor
     [CustomEditor(typeof(TSFE.SFEXT.SFEXT_AdvancedEngine))]
     public class SFEXT_AdvancedEngineEditor : UnityEditor.Editor
     {
-        private bool showControls = true;
-        private bool showState = true;
-        private bool showSettings = false;
-        private bool showResponseCalculator = false;
+        private const string PREF_SHOW_CONTROLS = "TSFE.AdvancedEngineEditor.ShowControls";
+        private const string PREF_SHOW_STATE = "TSFE.AdvancedEngineEditor.ShowState";
+        private const string PREF_SHOW_RESPONSE_CALC = "TSFE.AdvancedEngineEditor.ShowResponseCalculator";
+        private const string PREF_SHOW_SETTINGS = "TSFE.AdvancedEngineEditor.ShowSettings";
 
         // 前回の値を記憶（変更検知用）
         private float previousStarterTime = -1f;
@@ -34,7 +34,7 @@ namespace TSFE.Editor
             // Play Mode中のみコントロール表示
             if (Application.isPlaying)
             {
-                showControls = EditorGUILayout.Foldout(showControls, "Engine Controls (Play Mode)", true, EditorStyles.foldoutHeader);
+                bool showControls = TSFEEditorUtil.DrawPersistentFoldout(PREF_SHOW_CONTROLS, "Engine Controls (Play Mode)", true);
                 if (showControls)
                 {
                     EditorGUILayout.BeginVertical("box");
@@ -94,7 +94,7 @@ namespace TSFE.Editor
 
                 EditorGUILayout.Space();
 
-                showState = EditorGUILayout.Foldout(showState, "Engine State (Real-time)", true, EditorStyles.foldoutHeader);
+                bool showState = TSFEEditorUtil.DrawPersistentFoldout(PREF_SHOW_STATE, "Engine State (Real-time)", true);
                 if (showState)
                 {
                     EditorGUILayout.BeginVertical("box");
@@ -335,7 +335,7 @@ namespace TSFE.Editor
             EditorGUILayout.Space();
 
             // Response Time Calculator (自動計算・即時反映)
-            showResponseCalculator = EditorGUILayout.Foldout(showResponseCalculator, "Response Time Calculator (自動計算)", true, EditorStyles.foldoutHeader);
+            bool showResponseCalculator = TSFEEditorUtil.DrawPersistentFoldout(PREF_SHOW_RESPONSE_CALC, "Response Time Calculator (自動計算)", false);
             if (showResponseCalculator)
             {
                 EditorGUILayout.BeginVertical("box");
@@ -444,7 +444,7 @@ namespace TSFE.Editor
 
             EditorGUILayout.Space();
 
-            showSettings = EditorGUILayout.Foldout(showSettings, "Settings", true, EditorStyles.foldoutHeader);
+            bool showSettings = TSFEEditorUtil.DrawPersistentFoldout(PREF_SHOW_SETTINGS, "Settings", false);
             if (showSettings)
             {
                 DrawDefaultInspector();
