@@ -299,18 +299,30 @@ bool show = TSFEEditorUtil.DrawPersistentFoldout("TSFE.EngineEditor.ShowControls
 
 - ✅ TSFEEditorUtil.cs作成
   - 色定数、ColorScope、State表示ヘルパー
-- ✅ PowerBusEditorにFoldout永続化適用
-- ✅ PowerBusEditorのGUI色設定を移行
+- ✅ 全EditorにFoldout永続化適用
+  - PowerBusEditor, AuxiliaryPowerUnitEditor, AutoStarterEditor, AdvancedEngineEditor, MockSAVControlEditor
+- ✅ 全EditorのGUI色設定をColorScopeに移行
+
+### Phase 2 (中期改善)
+
+- ✅ 命名統一（直接変更、後方互換性なし）
+  - `apuStartedIndicator` → `apuRunningIndicator`
+  - `engineOnIndicators` → `engineRunningIndicators`
+  - 13ファイル変更（Runtime 4, Editor 1, Prefab/Asset 8）
+- ✅ MockSAVControl完全化
+  - SaccAirVehicle互換フィールド追加（EngineOutput, Health, Piloting, InVR, InEditor, IsOwner, EntityControl）
+- ✅ テストシナリオフレームワーク作成
+  - TestScenario.cs（シナリオ定義）
+  - TestScenarioRunner.cs（自動実行・検証）
+  - TestScenarioRunnerEditor.cs（Inspector統合）
 
 ---
 
 ## 今後の拡張予定
 
-### Phase 2（条件付き実施）
+### Phase 3（オプショナル、低優先度）
 
-- 命名統一（Obsolete移行で後方互換性維持）
-- MockSAVControl完全化
-- テストシナリオのスクリプト化
+- Response Time Calculatorの共通化（APU等で必要になった時点で実施）
 
 ### 非推奨（UdonSharp制約により効果限定的）
 
