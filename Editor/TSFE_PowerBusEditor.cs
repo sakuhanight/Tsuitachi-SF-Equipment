@@ -7,8 +7,8 @@ namespace TSFE.Editor
     [CustomEditor(typeof(TSFE.Utility.TSFE_PowerBus))]
     public class TSFE_PowerBusEditor : UnityEditor.Editor
     {
-        private bool showControls = true;
-        private bool showState = true;
+        private const string PREF_SHOW_CONTROLS = "TSFE.PowerBusEditor.ShowControls";
+        private const string PREF_SHOW_STATE = "TSFE.PowerBusEditor.ShowState";
 
         public override void OnInspectorGUI()
         {
@@ -22,7 +22,7 @@ namespace TSFE.Editor
             // Play Mode中のみコントロール表示
             if (Application.isPlaying)
             {
-                showControls = EditorGUILayout.Foldout(showControls, "Power Controls (Play Mode)", true, EditorStyles.foldoutHeader);
+                bool showControls = TSFEEditorUtil.DrawPersistentFoldout(PREF_SHOW_CONTROLS, "Power Controls (Play Mode)", true);
                 if (showControls)
                 {
                     EditorGUILayout.BeginVertical("box");
@@ -32,12 +32,13 @@ namespace TSFE.Editor
                     {
                         EditorGUILayout.LabelField("Battery Control", EditorStyles.boldLabel);
 
-                        GUI.color = powerBus.BatteryOn ? Color.green : Color.red;
-                        if (GUILayout.Button(powerBus.BatteryOn ? "Battery: ON" : "Battery: OFF", GUILayout.Height(40)))
+                        using (new TSFEEditorUtil.ColorScope(powerBus.BatteryOn ? TSFEEditorUtil.StateOnColor : TSFEEditorUtil.StateOffColor))
                         {
-                            powerBus.ToggleBattery();
+                            if (GUILayout.Button(powerBus.BatteryOn ? "Battery: ON" : "Battery: OFF", GUILayout.Height(40)))
+                            {
+                                powerBus.ToggleBattery();
+                            }
                         }
-                        GUI.color = Color.white;
 
                         EditorGUILayout.BeginHorizontal();
                         if (GUILayout.Button("Turn ON", GUILayout.Height(30)))
@@ -52,9 +53,10 @@ namespace TSFE.Editor
                     }
                     else
                     {
-                        GUI.color = Color.gray;
-                        EditorGUILayout.LabelField("Battery", "Disabled (batteryPoweredIndicator = null)");
-                        GUI.color = Color.white;
+                        using (new TSFEEditorUtil.ColorScope(TSFEEditorUtil.StateInactiveColor))
+                        {
+                            EditorGUILayout.LabelField("Battery", "Disabled (batteryPoweredIndicator = null)");
+                        }
                     }
 
                     EditorGUILayout.EndVertical();
@@ -62,7 +64,7 @@ namespace TSFE.Editor
 
                 EditorGUILayout.Space();
 
-                showState = EditorGUILayout.Foldout(showState, "Power State (Real-time)", true, EditorStyles.foldoutHeader);
+                bool showState = TSFEEditorUtil.DrawPersistentFoldout(PREF_SHOW_STATE, "Power State (Real-time)", true);
                 if (showState)
                 {
                     EditorGUILayout.BeginVertical("box");
@@ -71,20 +73,17 @@ namespace TSFE.Editor
                     EditorGUILayout.LabelField("Battery", EditorStyles.boldLabel);
                     if (powerBus.batteryPoweredIndicator != null)
                     {
-                        GUI.color = powerBus.BatteryOn ? Color.green : Color.red;
-                        EditorGUILayout.LabelField("Switch Status", powerBus.BatteryOn ? "ON" : "OFF");
-                        GUI.color = Color.white;
+                        TSFEEditorUtil.DrawStateLabel("Switch Status", powerBus.BatteryOn);
 
                         bool indicatorActive = powerBus.batteryPoweredIndicator.activeInHierarchy;
-                        GUI.color = indicatorActive ? Color.green : Color.red;
-                        EditorGUILayout.LabelField("Indicator GameObject", indicatorActive ? "Active" : "Inactive");
-                        GUI.color = Color.white;
+                        TSFEEditorUtil.DrawStateLabel("Indicator GameObject", indicatorActive, "Active", "Inactive");
 
                         if (indicatorActive && !powerBus.BatteryOn)
                         {
-                            GUI.color = Color.cyan;
-                            EditorGUILayout.LabelField("Note", "Active by Bus Power");
-                            GUI.color = Color.white;
+                            using (new TSFEEditorUtil.ColorScope(TSFEEditorUtil.StateInfoColor))
+                            {
+                                EditorGUILayout.LabelField("Note", "Active by Bus Power");
+                            }
                         }
                     }
                     else
@@ -96,9 +95,7 @@ namespace TSFE.Editor
 
                     // バス電源状態
                     EditorGUILayout.LabelField("Bus Power (Auto)", EditorStyles.boldLabel);
-                    GUI.color = powerBus.BusPowered ? Color.green : Color.red;
-                    EditorGUILayout.LabelField("Status", powerBus.BusPowered ? "POWERED" : "NOT POWERED");
-                    GUI.color = Color.white;
+                    TSFEEditorUtil.DrawStateLabel("Status", powerBus.BusPowered, "POWERED", "NOT POWERED");
 
                     // 電源ソース表示
                     EditorGUILayout.LabelField("Power Sources", EditorStyles.miniBoldLabel);
@@ -107,9 +104,10 @@ namespace TSFE.Editor
                     if (powerBus.apuStartedIndicator != null)
                     {
                         bool apuActive = powerBus.apuStartedIndicator.activeInHierarchy;
-                        GUI.color = apuActive ? Color.green : Color.gray;
-                        EditorGUILayout.LabelField("  APU", apuActive ? "RUNNING" : "OFF");
-                        GUI.color = Color.white;
+                        using (new TSFEEditorUtil.ColorScope(apuActive ? TSFEEditorUtil.StateOnColor : TSFEEditorUtil.StateInactiveColor))
+                        {
+                            EditorGUILayout.LabelField("  APU", apuActive ? "RUNNING" : "OFF");
+                        }
                     }
 
                     // エンジン
@@ -120,9 +118,10 @@ namespace TSFE.Editor
                             if (powerBus.engineOnIndicators[i] != null)
                             {
                                 bool engineActive = powerBus.engineOnIndicators[i].activeInHierarchy;
-                                GUI.color = engineActive ? Color.green : Color.gray;
-                                EditorGUILayout.LabelField($"  Engine {i + 1}", engineActive ? "ON" : "OFF");
-                                GUI.color = Color.white;
+                                using (new TSFEEditorUtil.ColorScope(engineActive ? TSFEEditorUtil.StateOnColor : TSFEEditorUtil.StateInactiveColor))
+                                {
+                                    EditorGUILayout.LabelField($"  Engine {i + 1}", engineActive ? "ON" : "OFF");
+                                }
                             }
                         }
                     }
@@ -131,9 +130,10 @@ namespace TSFE.Editor
                     if (powerBus.gpuObject != null)
                     {
                         bool gpuActive = powerBus.gpuObject.activeInHierarchy;
-                        GUI.color = gpuActive ? Color.green : Color.gray;
-                        EditorGUILayout.LabelField("  GPU (Ground Power)", gpuActive ? "CONNECTED" : "DISCONNECTED");
-                        GUI.color = Color.white;
+                        using (new TSFEEditorUtil.ColorScope(gpuActive ? TSFEEditorUtil.StateOnColor : TSFEEditorUtil.StateInactiveColor))
+                        {
+                            EditorGUILayout.LabelField("  GPU (Ground Power)", gpuActive ? "CONNECTED" : "DISCONNECTED");
+                        }
                     }
 
                     EditorGUILayout.Space();
@@ -146,9 +146,10 @@ namespace TSFE.Editor
                     }
                     else
                     {
-                        GUI.color = Color.yellow;
-                        EditorGUILayout.LabelField("Bus Indicator GameObject", "Not Set");
-                        GUI.color = Color.white;
+                        using (new TSFEEditorUtil.ColorScope(TSFEEditorUtil.StateWarningColor))
+                        {
+                            EditorGUILayout.LabelField("Bus Indicator GameObject", "Not Set");
+                        }
                     }
 
                     EditorGUILayout.EndVertical();

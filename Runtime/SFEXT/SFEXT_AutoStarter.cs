@@ -78,12 +78,11 @@ namespace TSFE.SFEXT
 
         /// <summary>
         /// エンジンがINOP（使用不可）か判定
-        /// fireHandlePulled（火災ハンドル引いた）= エンジン使用不可
         /// </summary>
         private bool IsEngineInop(SFEXT_AdvancedEngine engine)
         {
             if (engine == null) return true;
-            return engine.fireHandlePulled;
+            return engine.IsInoperable;
         }
 
         public override void OnOwnershipTransferred(VRCPlayerApi player)

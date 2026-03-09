@@ -101,6 +101,13 @@ namespace TSFE.SFEXT
             private set { _apuStateInt = (int)value; }
         }
 
+        // State判定ヘルパープロパティ
+        public bool IsOff => State == APUState.Off;
+        public bool IsStarting => State == APUState.Starting;
+        public bool IsRunning => State == APUState.Running;
+        public bool IsStopping => State == APUState.Stopping;
+        public bool CanStart => State == APUState.Off || State == APUState.Stopping;
+
         [UdonSynced] private bool run;
 
         // 内部状態

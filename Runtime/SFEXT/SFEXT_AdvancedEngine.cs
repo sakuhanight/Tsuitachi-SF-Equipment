@@ -281,6 +281,20 @@ namespace TSFE.SFEXT
             private set { _StateInt = (int)value; }
         }
 
+        // State判定ヘルパープロパティ
+        public bool IsOff => State == EngineState.Off;
+        public bool IsWindmilling => State == EngineState.Windmilling;
+        public bool IsStarting => State == EngineState.Starting;
+        public bool IsRunning => State == EngineState.Running;
+        public bool IsSeized => State == EngineState.Seized;
+        public bool CanStart => (State == EngineState.Off || State == EngineState.Windmilling) && !fireHandlePulled;
+
+        /// <summary>
+        /// エンジンが使用不可（INOP）状態か判定
+        /// 火災ハンドルが引かれている、または重大な故障状態
+        /// </summary>
+        public bool IsInoperable => fireHandlePulled || State == EngineState.Seized;
+
         private bool isOwner;
         private float throttleInput, reverserPosition, appliedThrust, appliedWindmillingDrag;
         private float idleVol, insideVol, thrustVol, takeoffVol, reverserVol, afterburnerVol;
