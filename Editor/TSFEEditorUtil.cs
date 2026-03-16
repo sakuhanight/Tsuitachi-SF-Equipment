@@ -306,5 +306,109 @@ namespace TSFE.Editor
 
             return newState;
         }
+
+        #region Response Time Calculator
+
+        /// <summary>
+        /// 目標時間からresponse rateを計算
+        /// MoveTowards(current, target, response * Abs(target - current) * dt) の場合:
+        /// 指数関数的収束: N(t) = target + (N0 - target) * exp(-response * t)
+        /// 95%到達時間を基準: response = 3 / timeSeconds
+        /// </summary>
+        /// <param name="from">開始値</param>
+        /// <param name="to">目標値</param>
+        /// <param name="timeSeconds">95%到達時間（秒）</param>
+        /// <returns>response rate</returns>
+        public static float CalculateResponseRate(float from, float to, float timeSeconds)
+        {
+            if (timeSeconds <= 0f) return 0f;
+            return 3f / timeSeconds;
+        }
+
+        /// <summary>
+        /// response rateから目標時間を逆算
+        /// 95%到達時間を返す
+        /// </summary>
+        /// <param name="from">開始値</param>
+        /// <param name="to">目標値</param>
+        /// <param name="response">response rate</param>
+        /// <returns>95%到達時間（秒）</returns>
+        public static float CalculateTimeFromResponse(float from, float to, float response)
+        {
+            if (response <= 0f) return 0f;
+            return 3f / response;
+        }
+
+        /// <summary>
+        /// Response Time Calculator: 時間とResponseパラメータの双方向編集GUI
+        /// 時間フィールドを編集するとresponse rateが自動計算され、
+        /// response rateを直接編集すると時間フィールドが自動更新される
+        /// </summary>
+        /// <param name="label">ラベル（例: "N2 Startup (0% → 25%)"）</param>
+        /// <param name="fromValue">開始値</param>
+        /// <param name="toValue">目標値</param>
+        /// <param name="time">時間フィールド（ref）</param>
+        /// <param name="response">response rate（ref）</param>
+        /// <param name="previousTime">前回の時間値（ref）</param>
+        /// <param name="previousResponse">前回のresponse値（ref）</param>
+        /// <param name="targetObject">変更対象のUnityObject（Undo/SetDirty用）</param>
+        /// <param name="responseFieldName">responseフィールドの名前（Undo表示用）</param>
+        /// <returns>response rateが変更されたかどうか</returns>
+        public static bool DrawResponseTimeField(
+            string label,
+            float fromValue,
+            float toValue,
+            ref float time,
+            ref float response,
+            ref float previousTime,
+            ref float previousResponse,
+            UnityEngine.Object targetObject,
+            string responseFieldName)
+        {
+            bool responseChanged = false;
+
+            // 初期化（最初の呼び出し時）
+            if (previousTime < 0f)
+            {
+                previousTime = CalculateTimeFromResponse(fromValue, toValue, response);
+                previousResponse = response;
+            }
+
+            EditorGUILayout.LabelField(label, EditorStyles.boldLabel);
+            float newTime = EditorGUILayout.FloatField("時間 (秒)", time);
+            EditorGUILayout.LabelField("Response", $"{response:F4}");
+
+            // 時間フィールドが変更された → responseを計算
+            if (Mathf.Abs(newTime - previousTime) > 0.001f && newTime > 0f)
+            {
+                if (targetObject != null)
+                {
+                    Undo.RecordObject(targetObject, $"Update {responseFieldName} from Time");
+                }
+
+                response = CalculateResponseRate(fromValue, toValue, newTime);
+                previousResponse = response;
+                time = newTime;
+                previousTime = newTime;
+
+                if (targetObject != null)
+                {
+                    EditorUtility.SetDirty(targetObject);
+                }
+
+                responseChanged = true;
+            }
+            // responseが直接変更された → 時間を逆算
+            else if (Mathf.Abs(response - previousResponse) > 0.0001f)
+            {
+                time = CalculateTimeFromResponse(fromValue, toValue, response);
+                previousTime = time;
+                previousResponse = response;
+            }
+
+            return responseChanged;
+        }
+
+        #endregion
     }
 }

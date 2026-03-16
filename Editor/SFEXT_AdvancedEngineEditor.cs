@@ -353,103 +353,62 @@ namespace TSFE.Editor
                 EditorGUILayout.BeginVertical("box");
                 EditorGUILayout.HelpBox("時間とResponseパラメータを相互に自動計算・即時反映します", MessageType.Info);
 
-                // 初期化
-                if (previousStarterTime < 0f)
-                {
-                    previousStarterTime = CalculateTimeFromResponse(0f, engine.takeOffN2 * engine.starterTargetN2Ratio, engine.n2StartupResponse);
-                    previousFuelTime = CalculateTimeFromResponse(engine.takeOffN2 * engine.starterTargetN2Ratio, engine.idleN2, engine.n2Response);
-                    previousN1Time = CalculateTimeFromResponse(engine.idleN1, engine.takeOffN1, engine.n1Response);
-                    previousN1DecTime = CalculateTimeFromResponse(engine.takeOffN1, engine.idleN1, engine.n1DecreaseResponse);
-                    previousN2StartupResponse = engine.n2StartupResponse;
-                    previousN2Response = engine.n2Response;
-                    previousN1Response = engine.n1Response;
-                    previousN1DecreaseResponse = engine.n1DecreaseResponse;
-                }
-
                 EditorGUILayout.Space();
 
                 // N2 Startup
-                EditorGUILayout.LabelField($"N2 Startup (Starter → {engine.starterTargetN2Ratio * 100:F0}%)", EditorStyles.boldLabel);
-                float starterTime = EditorGUILayout.FloatField("時間 (秒)", previousStarterTime);
-                EditorGUILayout.LabelField("Response", $"{engine.n2StartupResponse:F4}");
-
-                if (Mathf.Abs(starterTime - previousStarterTime) > 0.001f && starterTime > 0f)
-                {
-                    Undo.RecordObject(engine, "Update n2StartupResponse from Time");
-                    engine.n2StartupResponse = CalculateResponseRate(0f, engine.takeOffN2 * engine.starterTargetN2Ratio, starterTime);
-                    previousN2StartupResponse = engine.n2StartupResponse;
-                    previousStarterTime = starterTime;
-                    EditorUtility.SetDirty(engine);
-                }
-                else if (Mathf.Abs(engine.n2StartupResponse - previousN2StartupResponse) > 0.0001f)
-                {
-                    previousStarterTime = CalculateTimeFromResponse(0f, engine.takeOffN2 * engine.starterTargetN2Ratio, engine.n2StartupResponse);
-                    previousN2StartupResponse = engine.n2StartupResponse;
-                }
+                TSFEEditorUtil.DrawResponseTimeField(
+                    $"N2 Startup (Starter → {engine.starterTargetN2Ratio * 100:F0}%)",
+                    0f,
+                    engine.takeOffN2 * engine.starterTargetN2Ratio,
+                    ref previousStarterTime,
+                    ref engine.n2StartupResponse,
+                    ref previousStarterTime,
+                    ref previousN2StartupResponse,
+                    engine,
+                    "n2StartupResponse");
 
                 EditorGUILayout.Space();
 
                 // N2 Response
                 float idleN2Percent = engine.idleN2 / engine.takeOffN2 * 100f;
-                EditorGUILayout.LabelField($"N2 Response ({engine.starterTargetN2Ratio * 100:F0}% → {idleN2Percent:F0}% Idle)", EditorStyles.boldLabel);
-                float fuelTime = EditorGUILayout.FloatField("時間 (秒)", previousFuelTime);
-                EditorGUILayout.LabelField("Response", $"{engine.n2Response:F4}");
-
-                if (Mathf.Abs(fuelTime - previousFuelTime) > 0.001f && fuelTime > 0f)
-                {
-                    Undo.RecordObject(engine, "Update n2Response from Time");
-                    engine.n2Response = CalculateResponseRate(engine.takeOffN2 * engine.starterTargetN2Ratio, engine.idleN2, fuelTime);
-                    previousN2Response = engine.n2Response;
-                    previousFuelTime = fuelTime;
-                    EditorUtility.SetDirty(engine);
-                }
-                else if (Mathf.Abs(engine.n2Response - previousN2Response) > 0.0001f)
-                {
-                    previousFuelTime = CalculateTimeFromResponse(engine.takeOffN2 * engine.starterTargetN2Ratio, engine.idleN2, engine.n2Response);
-                    previousN2Response = engine.n2Response;
-                }
+                TSFEEditorUtil.DrawResponseTimeField(
+                    $"N2 Response ({engine.starterTargetN2Ratio * 100:F0}% → {idleN2Percent:F0}% Idle)",
+                    engine.takeOffN2 * engine.starterTargetN2Ratio,
+                    engine.idleN2,
+                    ref previousFuelTime,
+                    ref engine.n2Response,
+                    ref previousFuelTime,
+                    ref previousN2Response,
+                    engine,
+                    "n2Response");
 
                 EditorGUILayout.Space();
 
                 // N1 Response
-                EditorGUILayout.LabelField("N1 Response (Idle → Take Off)", EditorStyles.boldLabel);
-                float n1Time = EditorGUILayout.FloatField("時間 (秒)", previousN1Time);
-                EditorGUILayout.LabelField("Response", $"{engine.n1Response:F4}");
-
-                if (Mathf.Abs(n1Time - previousN1Time) > 0.001f && n1Time > 0f)
-                {
-                    Undo.RecordObject(engine, "Update n1Response from Time");
-                    engine.n1Response = CalculateResponseRate(engine.idleN1, engine.takeOffN1, n1Time);
-                    previousN1Response = engine.n1Response;
-                    previousN1Time = n1Time;
-                    EditorUtility.SetDirty(engine);
-                }
-                else if (Mathf.Abs(engine.n1Response - previousN1Response) > 0.0001f)
-                {
-                    previousN1Time = CalculateTimeFromResponse(engine.idleN1, engine.takeOffN1, engine.n1Response);
-                    previousN1Response = engine.n1Response;
-                }
+                TSFEEditorUtil.DrawResponseTimeField(
+                    "N1 Response (Idle → Take Off)",
+                    engine.idleN1,
+                    engine.takeOffN1,
+                    ref previousN1Time,
+                    ref engine.n1Response,
+                    ref previousN1Time,
+                    ref previousN1Response,
+                    engine,
+                    "n1Response");
 
                 EditorGUILayout.Space();
 
                 // N1 Decrease
-                EditorGUILayout.LabelField("N1 Decrease (Take Off → Idle)", EditorStyles.boldLabel);
-                float n1DecTime = EditorGUILayout.FloatField("時間 (秒)", previousN1DecTime);
-                EditorGUILayout.LabelField("Response", $"{engine.n1DecreaseResponse:F4}");
-
-                if (Mathf.Abs(n1DecTime - previousN1DecTime) > 0.001f && n1DecTime > 0f)
-                {
-                    Undo.RecordObject(engine, "Update n1DecreaseResponse from Time");
-                    engine.n1DecreaseResponse = CalculateResponseRate(engine.takeOffN1, engine.idleN1, n1DecTime);
-                    previousN1DecreaseResponse = engine.n1DecreaseResponse;
-                    previousN1DecTime = n1DecTime;
-                    EditorUtility.SetDirty(engine);
-                }
-                else if (Mathf.Abs(engine.n1DecreaseResponse - previousN1DecreaseResponse) > 0.0001f)
-                {
-                    previousN1DecTime = CalculateTimeFromResponse(engine.takeOffN1, engine.idleN1, engine.n1DecreaseResponse);
-                    previousN1DecreaseResponse = engine.n1DecreaseResponse;
-                }
+                TSFEEditorUtil.DrawResponseTimeField(
+                    "N1 Decrease (Take Off → Idle)",
+                    engine.takeOffN1,
+                    engine.idleN1,
+                    ref previousN1DecTime,
+                    ref engine.n1DecreaseResponse,
+                    ref previousN1DecTime,
+                    ref previousN1DecreaseResponse,
+                    engine,
+                    "n1DecreaseResponse");
 
                 EditorGUILayout.EndVertical();
             }
@@ -463,26 +422,5 @@ namespace TSFE.Editor
             }
         }
 
-        /// <summary>
-        /// 目標時間からresponse rateを計算
-        /// MoveTowards(current, target, response * Abs(target - current) * dt) の場合:
-        /// 指数関数的収束: N(t) = target + (N0 - target) * exp(-response * t)
-        /// 95%到達時間を基準: response = 3 / timeSeconds
-        /// </summary>
-        private float CalculateResponseRate(float from, float to, float timeSeconds)
-        {
-            if (timeSeconds <= 0f) return 0f;
-            return 3f / timeSeconds;
-        }
-
-        /// <summary>
-        /// response rateから目標時間を逆算
-        /// 95%到達時間を返す
-        /// </summary>
-        private float CalculateTimeFromResponse(float from, float to, float response)
-        {
-            if (response <= 0f) return 0f;
-            return 3f / response;
-        }
     }
 }
