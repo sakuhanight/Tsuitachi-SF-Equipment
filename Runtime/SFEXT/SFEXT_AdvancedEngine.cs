@@ -226,6 +226,17 @@ namespace TSFE.SFEXT
         [Tooltip("火災警報音（2D UI音、コックピット内）")]
         public AudioSource fireAlarmSound;
 
+        [Header("キャノピー連動音量制御")]
+        [Tooltip("キャノピー閉鎖時の機内音量減衰を有効化")]
+        public bool enableCanopyAttenuation = true;
+        [Tooltip("Animatorのキャノピーパラメータ名（bool型: true=開, false=閉 / float型: 1.0=開, 0.0=閉）")]
+        public string canopyParameterName = "canopy";
+        [Tooltip("パラメータ値を反転（true=閉, false=開 の場合にチェック）")]
+        public bool invertCanopyParameter = false;
+        [Tooltip("キャノピー閉鎖時の音量倍率（0.0-1.0）")]
+        [Range(0f, 1f)]
+        public float canopyClosedVolumeMultiplier = 0.3f;
+
         [Header("消火システム")]
         [Tooltip("消火剤投入時の火災消火成功率 (0-1)")]
         [Range(0f, 1f)]
@@ -286,6 +297,7 @@ namespace TSFE.SFEXT
         public bool IsInoperable => fireHandlePulled || State == EngineState.Seized;
 
         private bool isOwner;
+        private bool isPilot, isPassenger;
         private float throttleInput, reverserPosition, appliedThrust, appliedWindmillingDrag;
         private float idleVol, insideVol, thrustVol, takeoffVol, reverserVol, afterburnerVol;
         private float idlePit, insidePit, thrustPit, takeoffPit, reverserPit, afterburnerPit;
@@ -360,6 +372,26 @@ namespace TSFE.SFEXT
         public void SFEXT_O_LoseOwnership()
         {
             isOwner = false;
+        }
+
+        public void SFEXT_O_PilotEnter()
+        {
+            isPilot = true;
+        }
+
+        public void SFEXT_O_PilotExit()
+        {
+            isPilot = false;
+        }
+
+        public void SFEXT_P_PassengerEnter()
+        {
+            isPassenger = true;
+        }
+
+        public void SFEXT_P_PassengerExit()
+        {
+            isPassenger = false;
         }
 
         public void SFEXT_G_Explode()
@@ -746,10 +778,76 @@ namespace TSFE.SFEXT
             }
         }
 
+        /// <summary>
+        /// キャノピー状態とプレイヤー位置に基づいて音量減衰係数を取得
+        /// </summary>
+        private float GetCanopyAttenuation()
+        {
+            if (!enableCanopyAttenuation) return 1f;
+
+            // プレイヤーが機内にいるか判定
+            bool playerInside = isPilot || isPassenger;
+            if (!playerInside) return 1f;
+
+            // キャノピーが開いているか判定
+            // デフォルト: 閉じている（パラメータが取得できない場合は音量減衰）
+            bool canopyOpen = false;
+            if (vehicleAnimator && !string.IsNullOrEmpty(canopyParameterName))
+            {
+                // パラメータの型を確認
+                UnityEngine.AnimatorControllerParameterType paramType = UnityEngine.AnimatorControllerParameterType.Float;
+                bool paramFound = false;
+
+                for (int i = 0; i < vehicleAnimator.parameterCount; i++)
+                {
+                    var param = vehicleAnimator.GetParameter(i);
+                    if (param.name == canopyParameterName)
+                    {
+                        paramType = param.type;
+                        paramFound = true;
+                        break;
+                    }
+                }
+
+                if (paramFound)
+                {
+                    float canopyValue = 0f;
+
+                    // 型に応じて適切なメソッドで取得
+                    if (paramType == UnityEngine.AnimatorControllerParameterType.Bool)
+                    {
+                        // Bool型: GetBool()で取得してfloatに変換
+                        bool boolValue = vehicleAnimator.GetBool(canopyParameterName);
+                        canopyValue = boolValue ? 1f : 0f;
+                    }
+                    else
+                    {
+                        // Float型またはInt型: GetFloat()で取得
+                        canopyValue = vehicleAnimator.GetFloat(canopyParameterName);
+                    }
+
+                    // 反転フラグが有効な場合は値を反転
+                    if (invertCanopyParameter)
+                    {
+                        canopyValue = 1f - canopyValue;
+                    }
+
+                    // 0.5より大きい場合に「開いている」と判定
+                    canopyOpen = canopyValue > 0.5f;
+                }
+            }
+
+            // キャノピーが閉じている場合は音量減衰
+            return canopyOpen ? 1f : canopyClosedVolumeMultiplier;
+        }
+
         private void UpdateSound()
         {
             float n1Norm = N1 / takeOffN1;
             float n2Norm = N2 / takeOffN2;
+
+            // キャノピー減衰係数を取得
+            float canopyAttenuation = GetCanopyAttenuation();
 
             // idleSound: N2が動いている間のみ再生
             if (idleSound)
@@ -766,7 +864,7 @@ namespace TSFE.SFEXT
                         idleSound.Play();
                     }
 
-                    idleSound.volume = idleVol * Mathf.Clamp01(n2Norm * 2f) * idleVolumeMultiplier;
+                    idleSound.volume = idleVol * Mathf.Clamp01(n2Norm * 2f) * idleVolumeMultiplier * canopyAttenuation;
                     idleSound.pitch = idlePit * (0.5f + n2Norm * 0.5f);
                 }
                 else
@@ -796,7 +894,7 @@ namespace TSFE.SFEXT
                         insideSound.Play();
                     }
 
-                    insideSound.volume = insideVol * n2Norm * insideVolumeMultiplier;
+                    insideSound.volume = insideVol * n2Norm * insideVolumeMultiplier * canopyAttenuation;
                     insideSound.pitch = insidePit * (0.8f + n2Norm * 0.2f);
                 }
                 else
@@ -826,7 +924,7 @@ namespace TSFE.SFEXT
                         thrustSound.Play();
                     }
 
-                    thrustSound.volume = thrustVol * n1Norm * thrustVolumeMultiplier;
+                    thrustSound.volume = thrustVol * n1Norm * thrustVolumeMultiplier * canopyAttenuation;
                     thrustSound.pitch = thrustPit * (0.7f + n1Norm * 0.3f);
                 }
                 else
@@ -857,7 +955,7 @@ namespace TSFE.SFEXT
                     }
 
                     // 音量: 80%以上で0→1に上昇
-                    takeoffSound.volume = takeoffVol * Mathf.Max(0f, (n1Norm - 0.8f) * 5f) * takeoffVolumeMultiplier;
+                    takeoffSound.volume = takeoffVol * Mathf.Max(0f, (n1Norm - 0.8f) * 5f) * takeoffVolumeMultiplier * canopyAttenuation;
                     // ピッチ: 80%～100%で0.8→1.1に変化（N1に比例）
                     takeoffSound.pitch = takeoffPit * (0.8f + n1Norm * 0.3f);
                 }
@@ -939,7 +1037,7 @@ namespace TSFE.SFEXT
 
                     // 音量: reverserPositionとN1の最大値を使用（より大きい音）
                     float volFactor = Mathf.Max(reverserPosition, n1Norm);
-                    reverserSound.volume = reverserVol * volFactor * reverserVolumeMultiplier;
+                    reverserSound.volume = reverserVol * volFactor * reverserVolumeMultiplier * canopyAttenuation;
                     // ピッチ: N1に比例（0.7～1.0）
                     reverserSound.pitch = reverserPit * (0.7f + n1Norm * 0.3f);
                 }
@@ -971,7 +1069,7 @@ namespace TSFE.SFEXT
                     }
 
                     // 音量: afterburnerLevelに比例
-                    afterburnerSound.volume = afterburnerVol * afterburnerLevel * afterburnerVolumeMultiplier;
+                    afterburnerSound.volume = afterburnerVol * afterburnerLevel * afterburnerVolumeMultiplier * canopyAttenuation;
                     // ピッチ: afterburnerLevelに比例（0.9～1.1）
                     afterburnerSound.pitch = afterburnerPit * (0.9f + afterburnerLevel * 0.2f);
                 }

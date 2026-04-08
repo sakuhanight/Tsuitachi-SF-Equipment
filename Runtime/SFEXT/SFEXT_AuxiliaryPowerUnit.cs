@@ -72,6 +72,17 @@ namespace TSFE.SFEXT
         [Range(0f, 2f)]
         public float stopVolumeMultiplier = 1f;
 
+        [Header("キャノピー連動音量制御")]
+        [Tooltip("キャノピー閉鎖時の機内音量減衰を有効化")]
+        public bool enableCanopyAttenuation = true;
+        [Tooltip("Animatorのキャノピーパラメータ名（bool型: true=開, false=閉 / float型: 1.0=開, 0.0=閉）")]
+        public string canopyParameterName = "canopy";
+        [Tooltip("パラメータ値を反転（true=閉, false=開 の場合にチェック）")]
+        public bool invertCanopyParameter = false;
+        [Tooltip("キャノピー閉鎖時の音量倍率（0.0-1.0）")]
+        [Range(0f, 1f)]
+        public float canopyClosedVolumeMultiplier = 0.3f;
+
         [Header("エフェクト")]
         public ParticleSystem exhaustEffect;
 
@@ -112,6 +123,8 @@ namespace TSFE.SFEXT
 
         // 内部状態
         private bool initialized;
+        private bool isPilot, isPassenger;
+        private Animator vehicleAnimator;
         private float apuStartVol, apuStartPit;
         private float apuLoopVol, apuLoopPit;
         private float apuStopVol, apuStopPit;
@@ -133,6 +146,12 @@ namespace TSFE.SFEXT
 
         private void InitializeAPU()
         {
+            // Animator取得
+            if (SAVControl != null)
+            {
+                vehicleAnimator = (Animator)SAVControl.GetProgramVariable("VehicleAnimator");
+            }
+
             // AudioSource初期化（すべてループ、初期無効）
             if (apuStartSound) { apuStartVol = apuStartSound.volume; apuStartPit = apuStartSound.pitch; apuStartSound.loop = true; apuStartSound.volume = 0f; apuStartSound.gameObject.SetActive(false); }
             if (apuLoopSound) { apuLoopVol = apuLoopSound.volume; apuLoopPit = apuLoopSound.pitch; apuLoopSound.loop = true; apuLoopSound.volume = 0f; apuLoopSound.gameObject.SetActive(false); }
@@ -148,7 +167,23 @@ namespace TSFE.SFEXT
         }
 
         private bool isOwner;
-        public void SFEXT_O_PilotEnter() { isOwner = true; }
+        public void SFEXT_O_PilotEnter()
+        {
+            isOwner = true;
+            isPilot = true;
+        }
+        public void SFEXT_O_PilotExit()
+        {
+            isPilot = false;
+        }
+        public void SFEXT_P_PassengerEnter()
+        {
+            isPassenger = true;
+        }
+        public void SFEXT_P_PassengerExit()
+        {
+            isPassenger = false;
+        }
         public void SFEXT_O_TakeOwnership() { isOwner = true; }
         public void SFEXT_O_LoseOwnership() { isOwner = false; }
         public void SFEXT_G_RespawnButton() { ResetStatus(); }
@@ -447,9 +482,75 @@ namespace TSFE.SFEXT
             }
         }
 
+        /// <summary>
+        /// キャノピー状態とプレイヤー位置に基づいて音量減衰係数を取得
+        /// </summary>
+        private float GetCanopyAttenuation()
+        {
+            if (!enableCanopyAttenuation) return 1f;
+
+            // プレイヤーが機内にいるか判定
+            bool playerInside = isPilot || isPassenger;
+            if (!playerInside) return 1f;
+
+            // キャノピーが開いているか判定
+            // デフォルト: 閉じている（パラメータが取得できない場合は音量減衰）
+            bool canopyOpen = false;
+            if (vehicleAnimator && !string.IsNullOrEmpty(canopyParameterName))
+            {
+                // パラメータの型を確認
+                UnityEngine.AnimatorControllerParameterType paramType = UnityEngine.AnimatorControllerParameterType.Float;
+                bool paramFound = false;
+
+                for (int i = 0; i < vehicleAnimator.parameterCount; i++)
+                {
+                    var param = vehicleAnimator.GetParameter(i);
+                    if (param.name == canopyParameterName)
+                    {
+                        paramType = param.type;
+                        paramFound = true;
+                        break;
+                    }
+                }
+
+                if (paramFound)
+                {
+                    float canopyValue = 0f;
+
+                    // 型に応じて適切なメソッドで取得
+                    if (paramType == UnityEngine.AnimatorControllerParameterType.Bool)
+                    {
+                        // Bool型: GetBool()で取得してfloatに変換
+                        bool boolValue = vehicleAnimator.GetBool(canopyParameterName);
+                        canopyValue = boolValue ? 1f : 0f;
+                    }
+                    else
+                    {
+                        // Float型またはInt型: GetFloat()で取得
+                        canopyValue = vehicleAnimator.GetFloat(canopyParameterName);
+                    }
+
+                    // 反転フラグが有効な場合は値を反転
+                    if (invertCanopyParameter)
+                    {
+                        canopyValue = 1f - canopyValue;
+                    }
+
+                    // 0.5より大きい場合に「開いている」と判定
+                    canopyOpen = canopyValue > 0.5f;
+                }
+            }
+
+            // キャノピーが閉じている場合は音量減衰
+            return canopyOpen ? 1f : canopyClosedVolumeMultiplier;
+        }
+
         private void UpdateSound()
         {
             float nNorm = N / ratedN;
+
+            // キャノピー減衰係数を取得
+            float canopyAttenuation = GetCanopyAttenuation();
 
             // クロスフェード境界値
             float starterTargetRPM = ratedN * starterTargetN;
@@ -477,13 +578,13 @@ namespace TSFE.SFEXT
                     {
                         // クロスフェード前: 0 ～ startCrossFadeN で音量増加
                         float startProgress = N / startCrossFadeN;
-                        apuStartSound.volume = apuStartVol * startProgress * startVolumeMultiplier;
+                        apuStartSound.volume = apuStartVol * startProgress * startVolumeMultiplier * canopyAttenuation;
                     }
                     else
                     {
                         // クロスフェード中: startCrossFadeN ～ starterTargetRPM でフェードアウト
                         float fadeOut = 1.0f - (N - startCrossFadeN) / (starterTargetRPM - startCrossFadeN);
-                        apuStartSound.volume = apuStartVol * fadeOut * startVolumeMultiplier;
+                        apuStartSound.volume = apuStartVol * fadeOut * startVolumeMultiplier * canopyAttenuation;
                     }
                 }
                 else
@@ -526,19 +627,19 @@ namespace TSFE.SFEXT
                         {
                             // クロスフェード中: startCrossFadeN ～ starterTargetRPM でフェードイン
                             float fadeIn = (N - startCrossFadeN) / (starterTargetRPM - startCrossFadeN);
-                            apuLoopSound.volume = apuLoopVol * fadeIn * loopVolumeMultiplier;
+                            apuLoopSound.volume = apuLoopVol * fadeIn * loopVolumeMultiplier * canopyAttenuation;
                         }
                         else
                         {
                             // 通常運転: starterTargetRPM以降はフルボリューム
-                            apuLoopSound.volume = apuLoopVol * loopVolumeMultiplier;
+                            apuLoopSound.volume = apuLoopVol * loopVolumeMultiplier * canopyAttenuation;
                         }
                     }
                     else if (isStoppingPhase && N > 0.01f && N >= stopCrossFadeN)
                     {
                         // 停止時クロスフェード: stopCrossFadeN ～ ratedN でフェードアウト
                         float fadeOut = (N - stopCrossFadeN) / (ratedN - stopCrossFadeN);
-                        apuLoopSound.volume = apuLoopVol * fadeOut * loopVolumeMultiplier;
+                        apuLoopSound.volume = apuLoopVol * fadeOut * loopVolumeMultiplier * canopyAttenuation;
 
                         // ピッチはRPMに比例
                         float pitchProgress = (N - startCrossFadeN) / (ratedN - startCrossFadeN);
@@ -577,12 +678,12 @@ namespace TSFE.SFEXT
                     {
                         // クロスフェード中（N >= stopCrossFadeN）: フェードイン
                         float fadeIn = 1.0f - (N - stopCrossFadeN) / (ratedN - stopCrossFadeN);
-                        apuStopSound.volume = apuStopVol * fadeIn * stopVolumeMultiplier;
+                        apuStopSound.volume = apuStopVol * fadeIn * stopVolumeMultiplier * canopyAttenuation;
                     }
                     else
                     {
                         // クロスフェード完了後（N < stopCrossFadeN）: 通常の減衰
-                        apuStopSound.volume = apuStopVol * nNorm * stopVolumeMultiplier;
+                        apuStopSound.volume = apuStopVol * nNorm * stopVolumeMultiplier * canopyAttenuation;
                     }
                 }
                 else
