@@ -226,16 +226,6 @@ namespace TSFE.SFEXT
         [Tooltip("火災警報音（2D UI音、コックピット内）")]
         public AudioSource fireAlarmSound;
 
-        [Header("ドップラー制御")]
-        [Tooltip("ドップラーコライダーGameObject - この範囲内ではSpatialBlend=0（2D音）、範囲外では1（3D音）")]
-        public GameObject dopplerCollider;
-        [Tooltip("範囲外（地上から聞く）でのSpatialBlend")]
-        [Range(0f, 1f)]
-        public float spatialBlendOutside = 1.0f;
-        [Tooltip("範囲内（コックピット内）でのSpatialBlend")]
-        [Range(0f, 1f)]
-        public float spatialBlendInside = 0.0f;
-
         [Header("消火システム")]
         [Tooltip("消火剤投入時の火災消火成功率 (0-1)")]
         [Range(0f, 1f)]
@@ -304,7 +294,6 @@ namespace TSFE.SFEXT
         private float continuousPowerTime; // 高出力連続運転時間
         private float afterburnerLevel; // アフターバーナーレベル (0-1)
         private float vehicleMass; // 機体質量 (kg)
-        private bool localPlayerInDopplerZone; // ローカルプレイヤーがドップラーコライダー内にいるか
 
         void Start()
         {
@@ -353,10 +342,6 @@ namespace TSFE.SFEXT
             // 火災音初期化（初期無効）
             if (fireBurnSound) { fireBurnSound.loop = true; fireBurnSound.volume = 0f; fireBurnSound.gameObject.SetActive(false); }
             if (fireAlarmSound) { fireAlarmSound.loop = true; fireAlarmSound.volume = 0f; fireAlarmSound.gameObject.SetActive(false); }
-
-            // ドップラーコライダー初期化（初期状態: 範囲外）
-            localPlayerInDopplerZone = false;
-            SetSpatialBlend(spatialBlendOutside);
 
             if (jetBlastParticle)
             {
@@ -567,12 +552,6 @@ namespace TSFE.SFEXT
 
             if (reverserPosition > 0f) thrust *= -(reverserRatio * reverserPosition);
 
-            // デバッグログ（推力計算）
-            if (Time.frameCount % 60 == 0) // 1秒ごと
-            {
-                Debug.Log($"[Engine Thrust] State={State}, N1={N1:F0}RPM, thrustRatio={thrustRatio:F3}, thrust={thrust:F0}N, appliedThrust={appliedThrust:F0}N");
-            }
-
             // 推力適用
             if (SAVControl != null && vehicleMass > 0f)
             {
@@ -668,7 +647,6 @@ namespace TSFE.SFEXT
                 {
                     fuel = false;
                     RequestSerialization();
-                    Debug.Log("[AdvancedEngine] Fuel exhausted - Engine shutting down");
                 }
             }
         }
@@ -1008,9 +986,6 @@ namespace TSFE.SFEXT
                     }
                 }
             }
-
-            // ドップラーコライダーチェック
-            UpdateDopplerZone();
         }
 
         private void OnFireStart()
@@ -1079,63 +1054,6 @@ namespace TSFE.SFEXT
             {
                 engineOnIndicator.SetActive(State == EngineState.Running);
             }
-        }
-
-        /// <summary>
-        /// ドップラーコライダー範囲チェック（Update内で呼ばれる）
-        /// </summary>
-        private void UpdateDopplerZone()
-        {
-            if (dopplerCollider == null)
-            {
-                Debug.Log("[AdvancedEngine] dopplerCollider is null");
-                return;
-            }
-
-            VRCPlayerApi localPlayer = Networking.LocalPlayer;
-            if (localPlayer == null) return;
-
-            // プレイヤー位置を取得
-            Vector3 playerPos = localPlayer.GetPosition();
-
-            // コライダーのBoundsを取得
-            Collider col = dopplerCollider.GetComponent<Collider>();
-            if (col == null)
-            {
-                Debug.LogWarning("[AdvancedEngine] dopplerCollider has no Collider component");
-                return;
-            }
-
-            // プレイヤーがコライダー内にいるかチェック
-            bool isInside = col.bounds.Contains(playerPos);
-
-            // 状態が変化した場合のみSpatialBlendを更新
-            if (isInside != localPlayerInDopplerZone)
-            {
-                localPlayerInDopplerZone = isInside;
-                float blend = isInside ? spatialBlendInside : spatialBlendOutside;
-                Debug.Log($"[AdvancedEngine] Player zone changed: isInside={isInside}, spatialBlend={blend}");
-                SetSpatialBlend(blend);
-            }
-        }
-
-        /// <summary>
-        /// 全エンジンサウンドのSpatialBlendを設定
-        /// </summary>
-        private void SetSpatialBlend(float blend)
-        {
-            Debug.Log($"[AdvancedEngine] SetSpatialBlend: {blend}");
-            if (idleSound != null)
-            {
-                idleSound.spatialBlend = blend;
-                Debug.Log($"[AdvancedEngine] idleSound.spatialBlend = {idleSound.spatialBlend}");
-            }
-            if (insideSound != null) insideSound.spatialBlend = blend;
-            if (thrustSound != null) thrustSound.spatialBlend = blend;
-            if (takeoffSound != null) takeoffSound.spatialBlend = blend;
-            if (reverserSound != null) reverserSound.spatialBlend = blend;
-            if (afterburnerSound != null) afterburnerSound.spatialBlend = blend;
-            if (fireBurnSound != null) fireBurnSound.spatialBlend = blend;
         }
 
         // ========================================================================
@@ -1233,14 +1151,6 @@ namespace TSFE.SFEXT
             float targetN1Unclamped = targetN1;
             targetN1 = Mathf.Clamp(targetN1, 0f, takeOffN1 * windmillingMaxN1Ratio);
 
-            // デバッグログ（一時的）
-            if (Time.frameCount % 60 == 0) // 1秒ごと
-            {
-                float targetN2 = targetN1 * windmillingN2toN1Ratio;
-                float n2Pct = targetN2 / takeOffN2 * 100f;
-                Debug.Log($"[Windmilling] TAS={airSpeed:F1}m/s, Atm={atmosphere:F2}, IAS={ias:F1}m/s ({TSFEUtil.ToKnots(ias):F0}KIAS), targetN1={targetN1Unclamped:F0}RPM→{targetN1:F0}RPM (idle={idleN1:F0}), targetN2={targetN2:F0}RPM ({n2Pct:F1}%)");
-            }
-
             N1 = Mathf.MoveTowards(N1, targetN1, n1DecreaseResponse * Mathf.Abs(N1 - targetN1) * dt);
         }
 
@@ -1265,13 +1175,6 @@ namespace TSFE.SFEXT
             float n2Min = idleN2 * 0.99f;
             target = Mathf.Min(target, TSFEUtil.ClampedRemap(N2, n2Min, takeOffN2, idleN1, takeOffN1));
             float resp = target > N1 ? n1Response : n1DecreaseResponse;
-
-            // デバッグログ（一時的）
-            if (Time.frameCount % 60 == 0) // 1秒ごと
-            {
-                Debug.Log($"[Running] throttleInput={throttleInput:F2}, N1={N1:F0}RPM (target={target:F0}, idle={idleN1:F0}), N2={N2:F0}RPM");
-            }
-
             N1 = Mathf.MoveTowards(N1, target, resp * Mathf.Abs(target - N1) * dt);
         }
 

@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 139667368770441679}
   - component: {fileID: 1394097225134493190}
+  - component: {fileID: 5443738704079547362}
   m_Layer: 0
   m_Name: Sound_Start
   m_TagString: Untagged
@@ -48,7 +49,7 @@ AudioSource:
   m_Pitch: 1
   Loop: 1
   Mute: 0
-  Spatialize: 0
+  Spatialize: 1
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
@@ -128,6 +129,24 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &5443738704079547362
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1277787615107070581}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Gain: 10
+  Far: 300
+  Near: 5
+  VolumetricRadius: 5
+  EnableSpatialization: 1
+  UseAudioSourceVolumeCurve: 0
 --- !u!1 &1421843191804068999
 GameObject:
   m_ObjectHideFlags: 0
@@ -138,6 +157,7 @@ GameObject:
   m_Component:
   - component: {fileID: 7674625429057175870}
   - component: {fileID: 4280438544475679226}
+  - component: {fileID: 6579911439522632164}
   m_Layer: 0
   m_Name: Sound_Stop
   m_TagString: Untagged
@@ -176,7 +196,7 @@ AudioSource:
   m_Pitch: 1
   Loop: 1
   Mute: 0
-  Spatialize: 0
+  Spatialize: 1
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
@@ -256,6 +276,24 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &6579911439522632164
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1421843191804068999}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Gain: 10
+  Far: 300
+  Near: 5
+  VolumetricRadius: 5
+  EnableSpatialization: 1
+  UseAudioSourceVolumeCurve: 0
 --- !u!1 &4474966799816351869
 GameObject:
   m_ObjectHideFlags: 0
@@ -266,6 +304,7 @@ GameObject:
   m_Component:
   - component: {fileID: 114021985416837038}
   - component: {fileID: 3285472252383228381}
+  - component: {fileID: 1112323931566202635}
   m_Layer: 0
   m_Name: Sound_Loop
   m_TagString: Untagged
@@ -304,7 +343,7 @@ AudioSource:
   m_Pitch: 1
   Loop: 1
   Mute: 0
-  Spatialize: 0
+  Spatialize: 1
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
@@ -384,6 +423,24 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &1112323931566202635
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4474966799816351869}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Gain: 10
+  Far: 300
+  Near: 5
+  VolumetricRadius: 5
+  EnableSpatialization: 1
+  UseAudioSourceVolumeCurve: 0
 --- !u!1 &7113650378941433460
 GameObject:
   m_ObjectHideFlags: 0
@@ -490,6 +547,8 @@ MonoBehaviour:
   stopVolumeMultiplier: 0.6
   exhaustEffect: {fileID: 0}
   powerSource: {fileID: 0}
+  maxOperatingAltitude: 6096
+  SAVControl: {fileID: 0}
   apuRunningIndicator: {fileID: 7113650378941433460}
 --- !u!114 &286660676585838507
 MonoBehaviour:

@@ -65,7 +65,7 @@ namespace TSFE.SFEXT
         [System.NonSerialized] public float targetPosition;
         [System.NonSerialized][UdonSynced(UdonSyncMode.Smooth)] public float position;
         [System.NonSerialized][UdonSynced] public bool moving, inTransition;
-        [System.NonSerialized][UdonSynced] public bool failed, broken, parkingBrake;
+        [System.NonSerialized][UdonSynced] public bool failed, broken, Brake;
         [UdonSynced][FieldChangeCallback(nameof(Bursted))] private bool _bursted;
 
         private bool Bursted
@@ -261,7 +261,7 @@ namespace TSFE.SFEXT
 
         private float GetTargetBrakeStrength(float groundSpeed, bool taxiing)
         {
-            if (Mathf.Approximately(position, 0.0f) || parkingBrake) return 1.0f;
+            if (Mathf.Approximately(position, 0.0f) || Brake) return 1.0f;
             if (!brake || (autoLimitGroundSpeed || !Networking.LocalPlayer.IsUserInVR() && autoLimitGroundSpeedOnDesktop) && groundSpeed >= brakeMaxGroundSpeed) return 0;
 
             var brakeInput = (float)brake.GetProgramVariable("BrakeInput");

@@ -40,7 +40,6 @@ Transform:
   - {fileID: 1353127608588714703}
   - {fileID: 2975863763670939157}
   - {fileID: 8195164377078191842}
-  - {fileID: 3913376756977489146}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &6648033598083226821
@@ -77,8 +76,6 @@ MonoBehaviour:
   idleN2: 8000
   referenceN2: 14000
   takeOffN2: 15000
-  starterTargetN2: 0.35
-  minN2ForIgnition: 0.35
   n2Response: 1
   n2DecreaseResponse: 0.8
   n2StartupResponse: 1.5
@@ -101,6 +98,7 @@ MonoBehaviour:
   afterburnerThreshold: 0.8
   afterburnerThrustMultiplier: 1.62
   afterburnerResponse: 3
+  enableFailureSystem: 1
   mtbFireAtContinuous: 2592000
   mtbFireAtOverheat: 1800
   mtbMeltdownOnFire: 90
@@ -109,6 +107,13 @@ MonoBehaviour:
   continuousPowerTimeLimit: 300
   mtbFireAtContinuousPower: 600
   starterPowerSource: {fileID: 0}
+  n1Start: 0
+  starterTargetN2Ratio: 0.25
+  minN2ForIgnition: 0.35
+  starterTargetN1Ratio: 0.15
+  autoIgnitionN1Threshold: 0.1
+  startingN2toN1Ratio: 1.2
+  autoFuelInjection: 1
   autoStarterCutoff: 1
   starterCutoffThreshold: 0.95
   useManualMass: 0
@@ -116,6 +121,17 @@ MonoBehaviour:
   enableDynamicThrust: 1
   enableAsymmetricThrust: 1
   enginePosition: {fileID: 1345566173562018307}
+  windmillingN1Ratio: 0.27
+  windmillingN2toN1Ratio: 2.7
+  windmillingMaxN1Ratio: 0.35
+  windmillingReferenceSpeed: 290
+  minimumWindmillingSpeed: 150
+  windmillingDragCoefficient: 0.15
+  windmillingDragReferenceSpeed: 290
+  enableFuelConsumption: 1
+  idleFuelFlow: 0.15
+  maxFuelFlow: 1.1
+  afterburnerFuelMultiplier: 2.5
   SAVControl: {fileID: 0}
   vehicleAnimator: {fileID: 0}
   n1ParameterName: n1
@@ -132,14 +148,11 @@ MonoBehaviour:
   idleVolumeMultiplier: 1
   insideVolumeMultiplier: 1
   thrustVolumeMultiplier: 1
-  takeoffVolumeMultiplier: 0.8
+  takeoffVolumeMultiplier: 1
   reverserVolumeMultiplier: 1
-  afterburnerVolumeMultiplier: 1.5
+  afterburnerVolumeMultiplier: 1
   fireBurnSound: {fileID: 7332744407341320396}
   fireAlarmSound: {fileID: 5205797448564604316}
-  dopplerCollider: {fileID: 2290016451639942297}
-  spatialBlendOutside: 1
-  spatialBlendInside: 0
   extinguishSuccessRate: 0.85
   fireHandleCutsFuel: 1
   fireHandleCutsHydraulics: 0
@@ -195,6 +208,7 @@ GameObject:
   m_Component:
   - component: {fileID: 8195164377078191842}
   - component: {fileID: 2243577162723724906}
+  - component: {fileID: 1582228775033957514}
   m_Layer: 0
   m_Name: Sound_Afterburner
   m_TagString: Untagged
@@ -233,7 +247,7 @@ AudioSource:
   m_Pitch: 1
   Loop: 1
   Mute: 0
-  Spatialize: 0
+  Spatialize: 1
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
@@ -313,59 +327,24 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
---- !u!1 &2290016451639942297
-GameObject:
+--- !u!114 &1582228775033957514
+MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 3913376756977489146}
-  - component: {fileID: 1018198027078475967}
-  m_Layer: 0
-  m_Name: DopplerCollider
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &3913376756977489146
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2290016451639942297}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1345566173562018307}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!65 &1018198027078475967
-BoxCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2290016451639942297}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 1
-  m_ProvidesContacts: 0
+  m_GameObject: {fileID: 930564287562168412}
   m_Enabled: 1
-  serializedVersion: 3
-  m_Size: {x: 7.0685463, y: 1, z: 16.095522}
-  m_Center: {x: 0, y: 0, z: 6.82825}
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Gain: 10
+  Far: 1500
+  Near: 25
+  VolumetricRadius: 8
+  EnableSpatialization: 1
+  UseAudioSourceVolumeCurve: 0
 --- !u!1 &3407885447007359587
 GameObject:
   m_ObjectHideFlags: 0
@@ -376,6 +355,7 @@ GameObject:
   m_Component:
   - component: {fileID: 6667175677070752256}
   - component: {fileID: 5205797448564604316}
+  - component: {fileID: 3720652198085294147}
   m_Layer: 0
   m_Name: Sound_FireAlarm
   m_TagString: Untagged
@@ -414,7 +394,7 @@ AudioSource:
   m_Pitch: 1
   Loop: 1
   Mute: 0
-  Spatialize: 0
+  Spatialize: 1
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
@@ -494,6 +474,24 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &3720652198085294147
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3407885447007359587}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Gain: 10
+  Far: 2
+  Near: 0.1
+  VolumetricRadius: 1
+  EnableSpatialization: 1
+  UseAudioSourceVolumeCurve: 0
 --- !u!1 &3895859140578343052
 GameObject:
   m_ObjectHideFlags: 0
@@ -504,8 +502,9 @@ GameObject:
   m_Component:
   - component: {fileID: 1353127608588714703}
   - component: {fileID: 4462378257828439880}
+  - component: {fileID: 7544799522179655547}
   m_Layer: 0
-  m_Name: Sound_Roar
+  m_Name: Sound_TakeoffThrust
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -542,7 +541,7 @@ AudioSource:
   m_Pitch: 1
   Loop: 1
   Mute: 0
-  Spatialize: 0
+  Spatialize: 1
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
@@ -622,6 +621,24 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &7544799522179655547
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3895859140578343052}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Gain: 10
+  Far: 800
+  Near: 20
+  VolumetricRadius: 6
+  EnableSpatialization: 1
+  UseAudioSourceVolumeCurve: 0
 --- !u!1 &4687424693831828988
 GameObject:
   m_ObjectHideFlags: 0
@@ -663,6 +680,7 @@ GameObject:
   m_Component:
   - component: {fileID: 3204986587703460188}
   - component: {fileID: 941952956283396426}
+  - component: {fileID: 7944272321598803531}
   m_Layer: 0
   m_Name: Sound_Idle
   m_TagString: Untagged
@@ -701,7 +719,7 @@ AudioSource:
   m_Pitch: 1
   Loop: 1
   Mute: 0
-  Spatialize: 0
+  Spatialize: 1
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
@@ -781,6 +799,24 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &7944272321598803531
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5060596354830616175}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Gain: 10
+  Far: 300
+  Near: 10
+  VolumetricRadius: 5
+  EnableSpatialization: 1
+  UseAudioSourceVolumeCurve: 0
 --- !u!1 &5136489176673093313
 GameObject:
   m_ObjectHideFlags: 0
@@ -791,6 +827,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4588530661329167043}
   - component: {fileID: 5260801620802868188}
+  - component: {fileID: 6471799019652749286}
   m_Layer: 0
   m_Name: Sound_Core
   m_TagString: Untagged
@@ -829,7 +866,7 @@ AudioSource:
   m_Pitch: 1
   Loop: 1
   Mute: 0
-  Spatialize: 0
+  Spatialize: 1
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
@@ -909,6 +946,24 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &6471799019652749286
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5136489176673093313}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Gain: 10
+  Far: 5
+  Near: 1
+  VolumetricRadius: 2
+  EnableSpatialization: 1
+  UseAudioSourceVolumeCurve: 0
 --- !u!1 &6042819782827285841
 GameObject:
   m_ObjectHideFlags: 0
@@ -919,6 +974,7 @@ GameObject:
   m_Component:
   - component: {fileID: 6682762706470782718}
   - component: {fileID: 7332744407341320396}
+  - component: {fileID: 4087063946899425680}
   m_Layer: 0
   m_Name: Sound_Fire
   m_TagString: Untagged
@@ -957,7 +1013,7 @@ AudioSource:
   m_Pitch: 1
   Loop: 1
   Mute: 0
-  Spatialize: 0
+  Spatialize: 1
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
@@ -1037,6 +1093,24 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &4087063946899425680
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6042819782827285841}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Gain: 10
+  Far: 100
+  Near: 5
+  VolumetricRadius: 5
+  EnableSpatialization: 1
+  UseAudioSourceVolumeCurve: 0
 --- !u!1 &6275461120750483636
 GameObject:
   m_ObjectHideFlags: 0
@@ -1047,6 +1121,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2975863763670939157}
   - component: {fileID: 7292339305648659772}
+  - component: {fileID: 103087310464385441}
   m_Layer: 0
   m_Name: Sound_Reverser
   m_TagString: Untagged
@@ -1085,7 +1160,7 @@ AudioSource:
   m_Pitch: 1
   Loop: 1
   Mute: 0
-  Spatialize: 0
+  Spatialize: 1
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
@@ -1165,6 +1240,24 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &103087310464385441
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6275461120750483636}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Gain: 10
+  Far: 500
+  Near: 1
+  VolumetricRadius: 6
+  EnableSpatialization: 1
+  UseAudioSourceVolumeCurve: 0
 --- !u!1 &7336676751660343141
 GameObject:
   m_ObjectHideFlags: 0
@@ -1175,6 +1268,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4679691070029832094}
   - component: {fileID: 210326431735788041}
+  - component: {fileID: 6887236518005731022}
   m_Layer: 0
   m_Name: Sound_Jet
   m_TagString: Untagged
@@ -1213,7 +1307,7 @@ AudioSource:
   m_Pitch: 1
   Loop: 1
   Mute: 0
-  Spatialize: 0
+  Spatialize: 1
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
@@ -1293,3 +1387,21 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &6887236518005731022
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7336676751660343141}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: -617992517, guid: 661092b4961be7145bfbe56e1e62337b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Gain: 10
+  Far: 500
+  Near: 15
+  VolumetricRadius: 6
+  EnableSpatialization: 1
+  UseAudioSourceVolumeCurve: 0

@@ -1,35 +1,35 @@
-# Architecture
+# アーキテクチャ
 
-## Overview
+## 概要
 
-TSFE follows a component-based architecture that integrates with SaccFlightAndVehicles (SFV) through extension points. The system is organized into four main categories:
+TSFE は、SaccFlightAndVehicles (SFV) の拡張ポイントを通じて統合されるコンポーネントベースのアーキテクチャに従っています。システムは 4 つの主要カテゴリに分類されます：
 
-1. **DFUNC** - Dial Functions (VR/desktop interactive controls)
-2. **SFEXT** - SaccEntity Extensions (vehicle systems)
-3. **Avionics** - Aviation electronics (GPWS, warnings)
-4. **Utilities** - Shared helper systems
+1. **DFUNC** - ダイアル機能（VR/デスクトップのインタラクティブコントロール）
+2. **SFEXT** - SaccEntity 拡張（車両システム）
+3. **Avionics** - アビオニクス（GPWS、警報）
+4. **Utilities** - 共有ヘルパーシステム
 
-## Component Categories
+## コンポーネントカテゴリ
 
-### DFUNC (Dial Functions)
+### DFUNC (ダイアル機能)
 
-**Purpose**: Interactive controls for VR/desktop users attached to vehicle dials.
+**用途**: DFUNCダイアルに接続される VR/デスクトップユーザー向けインタラクティブコントロール。
 
-**Base Pattern**:
-- Derive from `UdonSharpBehaviour` directly (no base class)
-- Auto-injected fields by SFV:
+**基本パターン**:
+- `UdonSharpBehaviour` から直接派生（基底クラスなし）
+- SFV により自動注入されるフィールド:
   - `EntityControl` (SaccEntity)
   - `LeftDial` (bool)
   - `DialPosition` (int)
-- Required methods:
-  - `DFUNC_Selected()` - Called when dial is selected
-  - `DFUNC_Deselected()` - Called when dial is deselected
-  - `DFUNC_LeftDial()` - Left dial rotation
-  - `DFUNC_RightDial()` - Right dial rotation
+- 必須メソッド:
+  - `DFUNC_Selected()` - ダイアル選択時に呼び出される
+  - `DFUNC_Deselected()` - ダイアル選択解除時に呼び出される
+  - `DFUNC_LeftDial()` - 左ダイアル回転
+  - `DFUNC_RightDial()` - 右ダイアル回転
 
-**VR Input Pattern**:
+**VR 入力パターン**:
 ```csharp
-// Manual trigger handling (no DFUNC_Base)
+// 手動トリガー処理（DFUNC_Base なし）
 float trigger = LeftDial
     ? Input.GetAxisRaw("Oculus_CrossPlatform_PrimaryIndexTrigger")
     : Input.GetAxisRaw("Oculus_CrossPlatform_SecondaryIndexTrigger");
@@ -37,96 +37,96 @@ float trigger = LeftDial
 bool pressed = trigger > 0.75f;
 ```
 
-Or use TSFEUtil helper:
+または TSFEUtil ヘルパーを使用:
 ```csharp
 bool pressed = TSFEUtil.IsTriggerPressed(LeftDial);
 ```
 
-**Dial Display Pattern**:
+**ダイアル表示パターン**:
 ```csharp
-// Toggle dial display when state changes
+// 状態変化時にダイアル表示を切り替え
 TSFEUtil.SetDialFuncon(Dial_Funcon, Dial_Funcon_Array, isActive);
 ```
 
-**Implemented DFUNC Components**:
-- `DFUNC_AdvancedFlaps` - Multi-detent flaps
-- `DFUNC_AdvancedParkingBrake` - Parking brake
-- `DFUNC_AdvancedSpeedBrake` - Speed brake
-- `DFUNC_AdvancedThrustReverser` - Thrust reverser (for AdvancedEngine)
-- `DFUNC_AdvancedWaterRudder` - Water rudder
-- `DFUNC_ElevatorTrim` - Elevator trim
-- `DFUNC_MethodCaller` - Generic method caller
-- `DFUNC_ThrustReverser` - Standard thrust reverser
+**実装済み DFUNC コンポーネント**:
+- `DFUNC_AdvancedFlaps` - 多段デテントフラップ
+- `DFUNC_AdvancedParkingBrake` - パーキングブレーキ
+- `DFUNC_AdvancedSpeedBrake` - スピードブレーキ
+- `DFUNC_AdvancedThrustReverser` - 逆推力装置（AdvancedEngine 用）
+- `DFUNC_AdvancedWaterRudder` - 水上ラダー
+- `DFUNC_ElevatorTrim` - エレベータトリム
+- `DFUNC_MethodCaller` - 汎用メソッド呼び出し
+- `DFUNC_ThrustReverser` - 標準逆推力装置
 
-### SFEXT (SaccEntity Extensions)
+### SFEXT (SaccEntity 拡張)
 
-**Purpose**: Vehicle systems attached to SaccEntity that receive lifecycle events.
+**用途**: SaccEntity に接続され、ライフサイクルイベントを受け取る車両システム。
 
-**Lifecycle Events**:
-- `SFEXT_L_EntityStart()` - Entity initialization
-- `SFEXT_O_PilotEnter()` - Local pilot enters
-- `SFEXT_O_PilotExit()` - Local pilot exits
-- `SFEXT_P_PassengerEnter()` - Local passenger enters
-- `SFEXT_P_PassengerExit()` - Local passenger exits
-- `SFEXT_G_Explode()` - Vehicle exploded
-- `SFEXT_G_RespawnButton()` - Respawn button pressed
-- `SFEXT_O_TakeOwnership()` - Local player takes ownership
-- `SFEXT_O_LoseOwnership()` - Local player loses ownership
+**ライフサイクルイベント**:
+- `SFEXT_L_EntityStart()` - エンティティ初期化
+- `SFEXT_O_PilotEnter()` - ローカルパイロット搭乗
+- `SFEXT_O_PilotExit()` - ローカルパイロット降機
+- `SFEXT_P_PassengerEnter()` - ローカル乗客搭乗
+- `SFEXT_P_PassengerExit()` - ローカル乗客降機
+- `SFEXT_G_Explode()` - 車両爆発
+- `SFEXT_G_RespawnButton()` - リスポーンボタン押下
+- `SFEXT_O_TakeOwnership()` - ローカルプレイヤーがオーナー取得
+- `SFEXT_O_LoseOwnership()` - ローカルプレイヤーがオーナー喪失
 
-**SaccAirVehicle Data Access Pattern**:
+**SaccAirVehicle データアクセスパターン**:
 ```csharp
-// Reading
+// 読み取り
 float airSpeed = (float)SAVControl.GetProgramVariable("AirSpeed");
 bool engineOn = (bool)SAVControl.GetProgramVariable("EngineOn");
 
-// Writing (accumulative for physics)
+// 書き込み（物理演算用の加算型）
 float currentDrag = (float)SAVControl.GetProgramVariable("ExtraDrag");
 SAVControl.SetProgramVariable("ExtraDrag", currentDrag + deltaDrag);
 ```
 
-**Common SAVControl Fields**:
-- **Physics**: `ExtraDrag`, `ExtraLift`, `AirSpeed`, `AirVel`, `Atmosphere`, `VehicleRigidbody`
-- **Engine**: `EngineOn`, `ThrottleStrength`, `EngineOutput`, `Fuel`, `FullFuel`
-- **State**: `Taxiing`, `Floating`, `PitchDown`
-- **Animation**: `VehicleAnimator`
+**主要な SAVControl フィールド**:
+- **物理**: `ExtraDrag`, `ExtraLift`, `AirSpeed`, `AirVel`, `Atmosphere`, `VehicleRigidbody`
+- **エンジン**: `EngineOn`, `ThrottleStrength`, `EngineOutput`, `Fuel`, `FullFuel`
+- **状態**: `Taxiing`, `Floating`, `PitchDown`
+- **アニメーション**: `VehicleAnimator`
 
-**Implemented SFEXT Components**:
-- `SFEXT_AdvancedEngine` - Turbofan simulation
-- `SFEXT_AdvancedGear` - Landing gear
-- `SFEXT_AdvancedPropellerThrust` - Propeller thrust
-- `SFEXT_AuxiliaryPowerUnit` - APU system
-- `SFEXT_AutoStarter` - Auto engine startup
-- `SFEXT_BoardingCollider` - Boarding area
-- `SFEXT_DihedralEffect` - Dihedral effect
-- `SFEXT_EngineFanDriver` - Fan rotation
-- `SFEXT_EngineToggle` - Engine on/off toggle
-- `SFEXT_InstrumentsAnimationDriver` - Instrument driver
-- `SFEXT_OutsideOnly` - Outside-only objects
-- `SFEXT_PassengerOnly` - Passenger-only objects
-- `SFEXT_SeatsOnly` - Seats-only objects
-- `SFEXT_WakeTurbulence` - Wake turbulence
-- `SFEXT_Warning` - Generic warnings
+**実装済み SFEXT コンポーネント**:
+- `SFEXT_AdvancedEngine` - ターボファンシミュレーション
+- `SFEXT_AdvancedGear` - ランディングギア
+- `SFEXT_AdvancedPropellerThrust` - プロペラ推力
+- `SFEXT_AuxiliaryPowerUnit` - APU システム
+- `SFEXT_AutoStarter` - 自動エンジン始動
+- `SFEXT_BoardingCollider` - 搭乗エリア
+- `SFEXT_DihedralEffect` - 上反角効果
+- `SFEXT_EngineFanDriver` - ファン回転
+- `SFEXT_EngineToggle` - エンジン ON/OFF トグル
+- `SFEXT_InstrumentsAnimationDriver` - 計器駆動
+- `SFEXT_OutsideOnly` - 外部専用オブジェクト
+- `SFEXT_PassengerOnly` - 乗客専用オブジェクト
+- `SFEXT_SeatsOnly` - 座席専用オブジェクト
+- `SFEXT_WakeTurbulence` - 後方乱気流
+- `SFEXT_Warning` - 汎用警報
 
-### Avionics
+### Avionics（アビオニクス）
 
-**Purpose**: Aviation electronics systems (typically no sync, local-only).
+**用途**: 航空電子システム（通常は同期なし、ローカルのみ）。
 
-**Pattern**:
-- Usually `BehaviourSyncMode.None` (local-only)
-- Access SFEXT components via public references
-- Optional integration with DFUNC components
+**パターン**:
+- 通常 `BehaviourSyncMode.None`（ローカルのみ）
+- public 参照を介して SFEXT コンポーネントにアクセス
+- DFUNC コンポーネントとのオプション統合
 
-**Implemented Components**:
-- `GPWS` - Ground Proximity Warning System
-- `AuralWarnings` - Aural warning sounds
+**実装済みコンポーネント**:
+- `GPWS` - 対地接近警報装置
+- `AuralWarnings` - オーラル警報音
 
-### Utilities
+### Utilities（ユーティリティ）
 
-**Purpose**: Shared helper systems and math utilities.
+**用途**: 共有ヘルパーシステムと数学ユーティリティ。
 
-#### TSFEUtil (Static Helper Class)
+#### TSFEUtil (静的ヘルパークラス)
 
-**Unit Conversions**:
+**単位変換**:
 ```csharp
 float knots = TSFEUtil.ToKnots(metersPerSecond);
 float ms = TSFEUtil.FromKnots(knots);
@@ -134,64 +134,64 @@ float feet = TSFEUtil.ToFeet(meters);
 float meters = TSFEUtil.FromFeet(feet);
 ```
 
-**Math Helpers**:
+**数学ヘルパー**:
 ```csharp
-// Linear remap to 0-1
+// 0-1 への線形リマップ
 float normalized = TSFEUtil.Remap01(value, min, max);
 
-// Clamped remap
+// クランプ付きリマップ
 float clamped = TSFEUtil.ClampedRemap01(value, min, max);
 
-// 3-point lerp
+// 3 点補間
 float result = TSFEUtil.Lerp3(a, b, c, t, tMin, tMid, tMax);
 ```
 
-**Failure Modeling**:
+**故障モデリング**:
 ```csharp
-// MTBF-based failure check
+// MTBF ベースの故障判定
 if (TSFEUtil.CheckMTBF(deltaTime, mtbfHours)) {
-    // Component failed
+    // コンポーネント故障
 }
 
-// With damage multiplier
+// ダメージ倍率付き
 if (TSFEUtil.CheckMTBF(deltaTime, mtbfHours, damageMultiplier)) {
-    // Accelerated failure
+    // 加速故障
 }
 ```
 
-**DFUNC Helpers**:
+**DFUNC ヘルパー**:
 ```csharp
 float trigger = TSFEUtil.GetTriggerInput(leftDial);
 bool pressed = TSFEUtil.IsTriggerPressed(leftDial);
 TSFEUtil.SetDialFuncon(dialFuncon, dialFunconArray, active);
 ```
 
-#### System Buses
+#### システムバス
 
-**TSFE_PowerBus** - Electrical power distribution:
-- Battery, APU generator, engine generators
-- Power priority system
-- Voltage output management
+**TSFE_PowerBus** - 電力配電:
+- バッテリー、APU 発電機、エンジン発電機
+- 電源優先度システム
+- 電圧出力管理
 
-**TSFE_BleedAirBus** - Bleed air distribution:
-- APU bleed, engine bleed
-- Pressure management
+**TSFE_BleedAirBus** - ブリード空気配給:
+- APU ブリード、エンジンブリード
+- 圧力管理
 
-**TSFE_HydraulicBus** - Hydraulic system:
-- Multiple hydraulic circuits
-- Pressure management
-- Pump integration via `TSFE_HydraulicPump`
+**TSFE_HydraulicBus** - 油圧システム:
+- 複数の油圧回路
+- 圧力管理
+- `TSFE_HydraulicPump` によるポンプ統合
 
-#### Parameter Mapping
+#### パラメータマッピング
 
-**TSFE_ParameterTransform** - Maps parameters to Transform properties (position, rotation, scale)
+**TSFE_ParameterTransform** - パラメータを Transform プロパティ（位置、回転、スケール）にマッピング
 
-**TSFE_ParameterText** - Maps parameters to TextMeshPro text display
+**TSFE_ParameterText** - パラメータを TextMeshPro テキスト表示にマッピング
 
-## Sync Modes
+## 同期モード
 
-### Continuous Sync
-Components with real-time state synchronization:
+### 継続同期 (Continuous Sync)
+リアルタイム状態同期を行うコンポーネント:
 - `DFUNC_AdvancedFlaps`
 - `DFUNC_ElevatorTrim`
 - `DFUNC_AdvancedSpeedBrake`
@@ -199,38 +199,38 @@ Components with real-time state synchronization:
 - `SFEXT_AdvancedGear`
 - `SFEXT_AdvancedPropellerThrust`
 
-### Manual Sync
-Components with event-based synchronization:
+### 手動同期 (Manual Sync)
+イベントベースの同期を行うコンポーネント:
 - `DFUNC_AdvancedParkingBrake`
 - `DFUNC_AdvancedWaterRudder`
 - `SFEXT_AuxiliaryPowerUnit`
 - `SFEXT_AutoStarter`
 - `DFUNC_ThrustReverser`
 
-### No Sync
-Local-only components:
-- All Avionics (GPWS, AuralWarnings)
-- All Utilities (visual/display only)
+### 同期なし (No Sync)
+ローカル専用コンポーネント:
+- 全アビオニクス（GPWS、AuralWarnings）
+- 全ユーティリティ（表示専用）
 - SFEXT_Warning
 - DFUNC_MethodCaller
 
-## Execution Order
+## 実行順序
 
-Custom execution orders for timing-critical components:
-- `SFEXT_AdvancedEngine`: **1000** (must run before dependent systems)
-- `SFEXT_AutoStarter`: **1000** (coordinates with engine)
-- `GPWS`: **1100** (reads engine/flaps state after update)
+タイミングクリティカルなコンポーネントのカスタム実行順序:
+- `SFEXT_AdvancedEngine`: **1000**（依存システムより先に実行する必要がある）
+- `SFEXT_AutoStarter`: **1000**（エンジンと連携）
+- `GPWS`: **1100**（更新後にエンジン/フラップ状態を読み取る）
 
-## Component Dependencies
+## コンポーネント依存関係
 
-### Phase 1 (Core, Independent)
+### Phase 1（コア、独立）
 - `DFUNC_AdvancedFlaps`
 - `DFUNC_ElevatorTrim`
 - `DFUNC_AdvancedSpeedBrake`
 - `SFEXT_AuxiliaryPowerUnit`
-- `GPWS` (works with standard SFV gear/flaps)
+- `GPWS`（標準 SFV ギア/フラップで動作）
 
-### Phase 2 (Engine & Gear)
+### Phase 2（エンジン & ギア）
 - `SFEXT_AdvancedEngine` ← `DFUNC_AdvancedThrustReverser`, `SFEXT_EngineFanDriver`, `SFEXT_Warning`
 - `SFEXT_AdvancedGear` ← `DFUNC_AdvancedParkingBrake`
 - `SFEXT_AutoStarter` → `SFEXT_AuxiliaryPowerUnit`, `SFEXT_AdvancedEngine`
@@ -238,29 +238,29 @@ Custom execution orders for timing-critical components:
 - `SFEXT_AdvancedPropellerThrust`
 - `SFEXT_InstrumentsAnimationDriver`
 
-### Phase 3 (Avionics & Utilities)
-- `AuralWarnings` (optionally uses `DFUNC_AdvancedFlaps`)
-- `DFUNC_ThrustReverser` (standard, non-AdvancedEngine)
+### Phase 3（アビオニクス & ユーティリティ）
+- `AuralWarnings`（オプションで `DFUNC_AdvancedFlaps` を使用）
+- `DFUNC_ThrustReverser`（標準、非 AdvancedEngine）
 - `DFUNC_MethodCaller`
 - `SFEXT_OutsideOnly`, `SFEXT_PassengerOnly`, `SFEXT_SeatsOnly`
 - `SFEXT_BoardingCollider`
 
-### Phase 4 (Specialized)
+### Phase 4（特殊）
 - `DFUNC_AdvancedWaterRudder`
 - `SFEXT_WakeTurbulence`
 - `SFEXT_DihedralEffect`
 - `PickupChock`
 
-## Design Patterns
+## 設計パターン
 
-### State Management
-Most components use explicit state enums:
+### 状態管理
+ほとんどのコンポーネントは明示的な状態 enum を使用:
 ```csharp
 public enum EngineState { Off, Starting, Windmilling, Running }
 [UdonSynced] public EngineState State;
 ```
 
-### FieldChangeCallback Pattern
+### FieldChangeCallback パターン
 ```csharp
 [UdonSynced, FieldChangeCallback(nameof(Fuel))]
 private bool _fuel;
@@ -276,38 +276,38 @@ public bool Fuel
 }
 ```
 
-### INOP (Inoperable) Pattern
-Components support INOP state for realism:
+### INOP (作動不能) パターン
+リアリズムのためにコンポーネントは INOP 状態をサポート:
 ```csharp
-public bool IsInoperable; // Set by fire handle, maintenance, etc.
+public bool IsInoperable; // ファイアハンドル、メンテナンス等により設定
 
-// Check before allowing operations
+// 操作を許可する前にチェック
 if (IsInoperable) return;
 ```
 
-## Testing Framework
+## テストフレームワーク
 
-**TestScenario** - Defines automated test sequences
-**TestScenarioRunner** - Executes test scenarios
-**MockSAVControl** - Mock SaccAirVehicle for unit testing
+**TestScenario** - 自動テストシーケンスを定義
+**TestScenarioRunner** - テストシナリオを実行
+**MockSAVControl** - ユニットテスト用の SaccAirVehicle モック
 
-## Migration from EsnyaSFAddons
+## EsnyaSFAddons からの移行
 
-Key architectural changes:
-1. **No DFUNC_Base**: Manual VR trigger handling required
-2. **No UdonToolkit**: Use standard Unity `[Header]`, `[Tooltip]`
-3. **No InariUdon**: Removed dependency
-4. **SAVControl pattern**: `UdonSharpBehaviour` reference + `GetProgramVariable()`
-5. **Namespace**: `EsnyaSFAddons` → `TSFE`
+主なアーキテクチャ変更:
+1. **DFUNC_Base なし**: 手動での VR トリガー処理が必要
+2. **UdonToolkit なし**: 標準 Unity `[Header]`, `[Tooltip]` を使用
+3. **InariUdon なし**: 依存関係を削除
+4. **SAVControl パターン**: `UdonSharpBehaviour` 参照 + `GetProgramVariable()`
+5. **名前空間**: `EsnyaSFAddons` → `TSFE`
 
-## Assembly Definitions
+## アセンブリ定義
 
 **TSFE.Runtime** (`Runtime/TSFE.Runtime.asmdef`):
-- References: UdonSharp.Runtime, VRC.Udon, VRC.SDKBase, VRC.Udon.Serialization.OdinSerializer, SaccFlightAndVehicles.Runtime
-- Root namespace: `TSFE`
-- Auto-referenced: true
+- 参照: UdonSharp.Runtime, VRC.Udon, VRC.SDKBase, VRC.Udon.Serialization.OdinSerializer, SaccFlightAndVehicles.Runtime
+- ルート名前空間: `TSFE`
+- 自動参照: true
 
 **TSFE.Editor** (`Editor/TSFE.Editor.asmdef`):
-- References: TSFE.Runtime, UdonSharp.Editor, VRC SDKs
-- Platform: Editor only
-- Root namespace: `TSFE.Editor`
+- 参照: TSFE.Runtime, UdonSharp.Editor, VRC SDKs
+- プラットフォーム: Editor のみ
+- ルート名前空間: `TSFE.Editor`
