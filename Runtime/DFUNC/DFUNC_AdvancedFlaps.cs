@@ -24,9 +24,11 @@ namespace TSFE.DFUNC
         public GameObject powerSourceLegacy;
 
         [Header("Inputs")]
-        [Tooltip("VRでトリガー+前後操作時の移動検出閾値（メートル）")]
-        public float vrInputThreshold = 0.05f;
+        [Tooltip("VRコントローラーの感度（1デテント移動に必要な距離、メートル）")]
+        public float controllerSensitivity = 0.02f;
+        [Tooltip("VR入力軸（ControlsRoot座標系）- 前方がフラップ格納方向")]
         public Vector3 vrInputAxis = Vector3.forward;
+        [Tooltip("デスクトップ操作キー")]
         public KeyCode desktopKey = KeyCode.F;
 
         [Header("Animator")]
@@ -51,6 +53,10 @@ namespace TSFE.DFUNC
         [Range(0, 1)] public float hapticDuration = 0.2f;
         [Range(0, 1)] public float hapticAmplitude = 0.5f;
         [Range(0, 1)] public float hapticFrequency = 0.1f;
+
+        [Header("Debug")]
+        [Tooltip("デバッグモード: VR入力のログ出力")]
+        public bool debugMode = false;
 
         public UdonSharpBehaviour SAVControl;
         public GameObject Dial_Funcon;
@@ -93,10 +99,18 @@ namespace TSFE.DFUNC
         public void DFUNC_LeftDial()
         {
             trackingTarget = VRCPlayerApi.TrackingDataType.LeftHand;
+            if (debugMode)
+            {
+                Debug.Log($"[AdvancedFlaps] DFUNC_LeftDial called");
+            }
         }
         public void DFUNC_RightDial()
         {
             trackingTarget = VRCPlayerApi.TrackingDataType.RightHand;
+            if (debugMode)
+            {
+                Debug.Log($"[AdvancedFlaps] DFUNC_RightDial called");
+            }
         }
 
         public void SFEXT_L_EntityStart()
@@ -126,8 +140,19 @@ namespace TSFE.DFUNC
             isPilot = true;
             isOwner = true;
             selected = false;
+            if (debugMode)
+            {
+                Debug.Log($"[AdvancedFlaps] SFEXT_O_PilotEnter: isPilot=true, isOwner=true, selected=false");
+            }
         }
-        public void SFEXT_O_PilotExit() { isPilot = false; }
+        public void SFEXT_O_PilotExit()
+        {
+            isPilot = false;
+            if (debugMode)
+            {
+                Debug.Log($"[AdvancedFlaps] SFEXT_O_PilotExit: isPilot=false");
+            }
+        }
         public void SFEXT_O_TakeOwnership() { isOwner = true; }
         public void SFEXT_O_LoseOwnership() { isOwner = false; }
 
@@ -143,13 +168,36 @@ namespace TSFE.DFUNC
         public void DFUNC_Selected()
         {
             selected = true;
+
+            // LeftDialの値に応じてtrackingTargetを設定
+            // DFUNC_LeftDial/RightDialが呼ばれない場合の保険
+            if (LeftDial)
+            {
+                trackingTarget = VRCPlayerApi.TrackingDataType.LeftHand;
+            }
+            else
+            {
+                trackingTarget = VRCPlayerApi.TrackingDataType.RightHand;
+            }
+
+            if (debugMode)
+            {
+                Debug.Log($"[AdvancedFlaps] DFUNC_Selected: LeftDial={LeftDial}, trackingTarget={trackingTarget}");
+            }
             // 非Ownerが選択した場合、Ownershipを取得
             if (!isOwner)
             {
                 Networking.SetOwner(Networking.LocalPlayer, gameObject);
             }
         }
-        public void DFUNC_Deselected() { selected = false; }
+        public void DFUNC_Deselected()
+        {
+            selected = false;
+            if (debugMode)
+            {
+                Debug.Log($"[AdvancedFlaps] DFUNC_Deselected");
+            }
+        }
 
         private float prevAngle, prevTargetAngle;
         private void Update()
@@ -191,8 +239,12 @@ namespace TSFE.DFUNC
 
         private void LateUpdate()
         {
-            // isPilot（左席Owner）または selected（ダイヤル選択中）なら入力処理
-            if (isPilot || selected) HandleInput();
+            if (debugMode && Time.frameCount % 60 == 0)
+            {
+                Debug.Log($"[AdvancedFlaps] LateUpdate: isPilot={isPilot}, selected={selected}");
+            }
+
+            if (isPilot) HandleInput();
         }
 
         private void ResetStatus()
@@ -212,13 +264,46 @@ namespace TSFE.DFUNC
 
         private bool prevTrigger;
         private Vector3 trackingOrigin;
+        private int targetDetentIndexOrigin;
+        private float triggerPressTime;
         private void HandleInput()
         {
+            if (debugMode && Time.frameCount % 60 == 0)
+            {
+                Debug.Log($"[AdvancedFlaps] HandleInput called: selected={selected}");
+            }
+
+            // VR入力（selected 時のみ）
             if (selected)
             {
+                if (debugMode && Time.frameCount % 60 == 0)
+                {
+                    Debug.Log($"[AdvancedFlaps] selected=true, IsUserInVR={Networking.LocalPlayer.IsUserInVR()}, LeftDial={LeftDial}");
+                }
+
                 var trigger = TSFEUtil.IsTriggerPressed(LeftDial);
                 var triggerChanged = prevTrigger != trigger;
                 prevTrigger = trigger;
+
+                if (triggerChanged)
+                {
+                    if (trigger)
+                    {
+                        triggerPressTime = Time.time;
+                        if (debugMode)
+                        {
+                            Debug.Log($"[AdvancedFlaps] Trigger PRESSED at time={triggerPressTime:F2}");
+                        }
+                    }
+                    else
+                    {
+                        if (debugMode)
+                        {
+                            float duration = Time.time - triggerPressTime;
+                            Debug.Log($"[AdvancedFlaps] Trigger RELEASED after {duration:F2}s");
+                        }
+                    }
+                }
 
                 if (trigger)
                 {
@@ -226,24 +311,42 @@ namespace TSFE.DFUNC
                     if (triggerChanged)
                     {
                         trackingOrigin = trackingPosition;
+                        targetDetentIndexOrigin = targetDetentIndex;
+                        if (debugMode)
+                        {
+                            Debug.Log($"[AdvancedFlaps] Trigger press start: origin={trackingOrigin.ToString("F3")}, originDetent={targetDetentIndexOrigin}, currentTargetDetent={targetDetentIndex}");
+                        }
                     }
                     else
                     {
+                        // 移動量を計算（負=フラップダウン、正=フラップアップ）
                         var delta = Vector3.Dot(trackingPosition - trackingOrigin, vrInputAxis);
-                        if (delta > vrInputThreshold)
+                        // デテント数に変換（四捨五入）
+                        // 例: 2cm設定時、±1cmまで変化なし、±1cm超えで1デテント変化
+                        var detentDelta = Mathf.RoundToInt(-delta / controllerSensitivity);
+                        // 新しいデテントインデックスを計算
+                        var newDetentIndex = Mathf.Clamp(targetDetentIndexOrigin + detentDelta, 0, detents.Length - 1);
+
+                        if (debugMode && Time.frameCount % 10 == 0)
                         {
-                            PreviousDetent();
-                            trackingOrigin = trackingPosition;
+                            float holdTime = Time.time - triggerPressTime;
+                            Debug.Log($"[AdvancedFlaps] holdTime={holdTime:F2}s, delta={delta:F4}m ({delta * 100:F1}cm), detentDelta={detentDelta}, originDetent={targetDetentIndexOrigin}, newDetent={newDetentIndex}");
                         }
-                        else if (delta < -vrInputThreshold)
+
+                        // targetAngleを更新
+                        if (newDetentIndex != targetDetentIndex)
                         {
-                            NextDetent();
-                            trackingOrigin = trackingPosition;
+                            targetAngle = detents[newDetentIndex];
+                            if (debugMode)
+                            {
+                                Debug.Log($"[AdvancedFlaps] Detent changed: {targetDetentIndex} → {newDetentIndex}, angle={targetAngle}");
+                            }
                         }
                     }
                 }
             }
 
+            // デスクトップ入力
             if (Input.GetKeyDown(desktopKey))
             {
                 targetAngle = detents[(targetDetentIndex + 1) % detents.Length];
@@ -259,6 +362,11 @@ namespace TSFE.DFUNC
             var prev = targetDetentIndex;
             while (targetDetentIndex > 0 && detents[targetDetentIndex] > targetAngle) targetDetentIndex--;
             while (targetDetentIndex < detents.Length - 1 && detents[targetDetentIndex] < targetAngle) targetDetentIndex++;
+
+            if (debugMode && targetDetentIndex != prev)
+            {
+                Debug.Log($"[AdvancedFlaps] UpdateDetents: targetDetentIndex changed {prev} → {targetDetentIndex}, targetAngle={targetAngle}");
+            }
 
             if (isPilot && targetDetentIndex != prev)
                 TSFEUtil.PlayHaptics(LeftDial, hapticDuration, hapticAmplitude, hapticFrequency);

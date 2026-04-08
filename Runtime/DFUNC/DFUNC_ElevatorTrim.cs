@@ -43,9 +43,12 @@ namespace TSFE.DFUNC
         private VRCPlayerApi.TrackingDataType trackingTarget;
         private Transform controlsRoot;
         private Animator vehicleAnimator;
+        private Rigidbody vehicleRigidbody;
         private bool hasPilot, isPilot, isOwner, isSelected, isDirty, prevTrigger;
         private Vector3 trackingOrigin;
         private float prevTrim;
+        private float trimStrength;
+        private float rotMultiMaxSpeed;
 
         public void DFUNC_LeftDial()
         {
@@ -59,6 +62,18 @@ namespace TSFE.DFUNC
         {
             isSelected = true;
             prevTrigger = false;
+
+            // LeftDialの値に応じてtrackingTargetを設定
+            // DFUNC_LeftDial/RightDialが呼ばれない場合の保険
+            if (LeftDial)
+            {
+                trackingTarget = VRCPlayerApi.TrackingDataType.LeftHand;
+            }
+            else
+            {
+                trackingTarget = VRCPlayerApi.TrackingDataType.RightHand;
+            }
+
             // 非Ownerが選択した場合、Ownershipを取得
             if (!isOwner)
             {
@@ -74,6 +89,13 @@ namespace TSFE.DFUNC
             if (!controlsRoot) controlsRoot = entity.transform;
 
             vehicleAnimator = (Animator)SAVControl.GetProgramVariable("VehicleAnimator");
+            vehicleRigidbody = (Rigidbody)SAVControl.GetProgramVariable("VehicleRigidbody");
+
+            // トリム強度を計算（PitchStrength * multiplier）
+            var pitchStrength = (float)SAVControl.GetProgramVariable("PitchStrength");
+            trimStrength = pitchStrength * trimStrengthMultiplier;
+
+            rotMultiMaxSpeed = (float)SAVControl.GetProgramVariable("RotMultiMaxSpeed");
 
             ResetStatus();
         }
@@ -106,12 +128,27 @@ namespace TSFE.DFUNC
 
         private void FixedUpdate()
         {
-            if (!isOwner || !isPilot) return;
+            if (!isOwner) return;
 
-            var rotInputs = (Vector3)SAVControl.GetProgramVariable("RotationInputs");
-            var trimComponent = -(Mathf.Sign(trim) * Mathf.Pow(Mathf.Abs(trim), trimStrengthCurve) + trimBias);
-            rotInputs.x = Mathf.Clamp(rotInputs.x + trimComponent * trimStrengthMultiplier, -1, 1);
-            SAVControl.SetProgramVariable("RotationInputs", rotInputs);
+            // 前方速度成分を取得
+            var airVel = (Vector3)SAVControl.GetProgramVariable("AirVel");
+            var airspeed = Vector3.Dot(airVel, transform.forward);
+            if (airspeed < 0.1f) return;
+
+            // 速度による回転力の減衰係数
+            var rotlift = Mathf.Clamp(airspeed / rotMultiMaxSpeed, -1, 1);
+
+            // 大気密度
+            var atmosphere = (float)SAVControl.GetProgramVariable("Atmosphere");
+
+            // トリム力を計算してRigidbodyに適用
+            var trimForce = (Mathf.Sign(trim) * Mathf.Pow(Mathf.Abs(trim), trimStrengthCurve) + trimBias)
+                * trimStrength * rotlift * atmosphere;
+            vehicleRigidbody.AddForceAtPosition(
+                transform.up * trimForce,
+                transform.position,
+                ForceMode.Force
+            );
         }
 
         private void Update()
