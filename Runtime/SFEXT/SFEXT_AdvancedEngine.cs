@@ -384,6 +384,16 @@ namespace TSFE.SFEXT
             isPilot = false;
         }
 
+        public void SFEXT_O_InvertThrust_Activated()
+        {
+            reversing = true;
+        }
+
+        public void SFEXT_O_InvertThrust_Deactivated()
+        {
+            reversing = false;
+        }
+
         public void SFEXT_P_PassengerEnter()
         {
             isPassenger = true;

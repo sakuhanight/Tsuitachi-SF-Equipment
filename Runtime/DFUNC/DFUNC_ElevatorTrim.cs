@@ -44,6 +44,7 @@ namespace TSFE.DFUNC
         private Transform controlsRoot;
         private Animator vehicleAnimator;
         private Rigidbody vehicleRigidbody;
+        private Transform vehicleTransform;
         private bool hasPilot, isPilot, isOwner, isSelected, isDirty, prevTrigger;
         private Vector3 trackingOrigin;
         private float prevTrim;
@@ -90,10 +91,10 @@ namespace TSFE.DFUNC
 
             vehicleAnimator = (Animator)SAVControl.GetProgramVariable("VehicleAnimator");
             vehicleRigidbody = (Rigidbody)SAVControl.GetProgramVariable("VehicleRigidbody");
+            vehicleTransform = vehicleRigidbody.transform;
 
-            // トリム強度を計算（PitchStrength * multiplier）
-            var pitchStrength = (float)SAVControl.GetProgramVariable("PitchStrength");
-            trimStrength = pitchStrength * trimStrengthMultiplier;
+            // トリム強度を設定（LiftSurfaceを使う場合はPitchStrength=0なので、multiplierをそのまま使用）
+            trimStrength = trimStrengthMultiplier;
 
             rotMultiMaxSpeed = (float)SAVControl.GetProgramVariable("RotMultiMaxSpeed");
 
@@ -107,9 +108,18 @@ namespace TSFE.DFUNC
             isSelected = false;
             prevTrigger = false;
         }
-        public void SFEXT_O_PilotExit() { isPilot = false; }
-        public void SFEXT_O_TakeOwnership() { isOwner = true; }
-        public void SFEXT_O_LoseOwnership() { isOwner = false; }
+        public void SFEXT_O_PilotExit()
+        {
+            isPilot = false;
+        }
+        public void SFEXT_O_TakeOwnership()
+        {
+            isOwner = true;
+        }
+        public void SFEXT_O_LoseOwnership()
+        {
+            isOwner = false;
+        }
 
         public void SFEXT_G_PilotEnter()
         {
@@ -130,9 +140,10 @@ namespace TSFE.DFUNC
         {
             if (!isOwner) return;
 
-            // 前方速度成分を取得
+            // 前方速度成分を取得（機体のforward基準）
             var airVel = (Vector3)SAVControl.GetProgramVariable("AirVel");
             var airspeed = Vector3.Dot(airVel, transform.forward);
+
             if (airspeed < 0.1f) return;
 
             // 速度による回転力の減衰係数
@@ -141,11 +152,19 @@ namespace TSFE.DFUNC
             // 大気密度
             var atmosphere = (float)SAVControl.GetProgramVariable("Atmosphere");
 
-            // トリム力を計算してRigidbodyに適用
-            var trimForce = (Mathf.Sign(trim) * Mathf.Pow(Mathf.Abs(trim), trimStrengthCurve) + trimBias)
-                * trimStrength * rotlift * atmosphere;
+            // トリム力を計算
+            var trimSign = Mathf.Sign(trim);
+            var trimPow = Mathf.Pow(Mathf.Abs(trim), trimStrengthCurve);
+            var trimTerm = trimSign * trimPow + trimBias;
+
+            var trimForce = trimTerm * trimStrength * rotlift * atmosphere;
+
+            // 水平尾翼は重心より後方にあるので、trim>0(機首上げ)には尾翼に下向きの力が必要
+            var forceVector = -vehicleTransform.up * trimForce;
+
+            // このGameObjectの位置（水平尾翼中央、重心より後方）に力を加える
             vehicleRigidbody.AddForceAtPosition(
-                transform.up * trimForce,
+                forceVector,
                 transform.position,
                 ForceMode.Force
             );

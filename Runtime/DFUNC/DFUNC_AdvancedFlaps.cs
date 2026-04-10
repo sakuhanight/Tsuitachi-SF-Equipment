@@ -17,11 +17,8 @@ namespace TSFE.DFUNC
         public float response = 1f;
 
         [Header("Power/Hydraulic")]
-        [Tooltip("電力バス（TSFE_PowerBus）または油圧バス（TSFE_HydraulicBus）")]
-        public UdonSharpBehaviour powerSource;
-
-        [Tooltip("powerSourceがGameObjectの場合に使用（後方互換性）")]
-        public GameObject powerSourceLegacy;
+        [Tooltip("電源GameObject（有効/無効で電源状態を制御）")]
+        public GameObject powerSource;
 
         [Header("Inputs")]
         [Tooltip("VRコントローラーの感度（1デテント移動に必要な距離、メートル）")]
@@ -68,6 +65,11 @@ namespace TSFE.DFUNC
 
         [HideInInspector] public int targetDetentIndex, detentIndex;
         [HideInInspector] public float detentAngle, targetDetentAngle, speedLimit, targetSpeedLimit, angle, maxAngle;
+
+        /// <summary>
+        /// アクチュエータ破損または翼破損のいずれかでTrue
+        /// </summary>
+        public bool broken => actuatorBroken || WingBroken;
 
         private Animator vehicleAnimator;
         [System.NonSerialized][UdonSynced(UdonSyncMode.Smooth)] public float targetAngle;
@@ -448,30 +450,10 @@ namespace TSFE.DFUNC
 
         private bool IsPowerAvailable()
         {
-            // TSFE_PowerBus または TSFE_HydraulicBus をチェック
+            // GameObjectのactiveInHierarchyで電源状態を判定
             if (powerSource != null)
             {
-                var typeName = powerSource.GetType().Name;
-                if (typeName == "TSFE_PowerBus")
-                {
-                    object powered = powerSource.GetProgramVariable("Powered");
-                    if (powered == null) return false;
-                    if (powered.GetType() != typeof(bool)) return false;
-                    return (bool)powered;
-                }
-                else if (typeName == "TSFE_HydraulicBus")
-                {
-                    object pressurized = powerSource.GetProgramVariable("Pressurized");
-                    if (pressurized == null) return false;
-                    if (pressurized.GetType() != typeof(bool)) return false;
-                    return (bool)pressurized;
-                }
-            }
-
-            // 後方互換性: GameObject
-            if (powerSourceLegacy != null)
-            {
-                return powerSourceLegacy.activeInHierarchy;
+                return powerSource.activeInHierarchy;
             }
 
             // 電源設定なし = 常時動作
