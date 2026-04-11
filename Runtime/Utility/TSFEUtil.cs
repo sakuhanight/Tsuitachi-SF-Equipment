@@ -106,5 +106,49 @@ namespace TSFE.Utility
         public static float FromKnots(float knots) { return knots * KNOTS_TO_MS; }
         public static float ToFeet(float meters) { return meters * METERS_TO_FEET; }
         public static float FromFeet(float feet) { return feet * FEET_TO_METERS; }
+
+        // ============================================================
+        // Sound Management Helpers
+        // ============================================================
+
+        /// <summary>
+        /// キャノピー連動音量倍率を取得
+        /// </summary>
+        /// <param name="animator">VehicleAnimator</param>
+        /// <param name="paramName">キャノピーパラメータ名</param>
+        /// <param name="invert">パラメータ値を反転するか</param>
+        /// <param name="closedMultiplier">キャノピー閉鎖時の音量倍率</param>
+        /// <returns>音量倍率（1.0 = 開放、closedMultiplier = 閉鎖）</returns>
+        public static float GetCanopyVolumeMultiplier(
+            Animator animator,
+            string paramName,
+            bool invert,
+            float closedMultiplier)
+        {
+            if (!animator) return 1f;
+
+            bool canopyOpen = animator.GetBool(paramName);
+            if (invert) canopyOpen = !canopyOpen;
+
+            return canopyOpen ? 1f : closedMultiplier;
+        }
+
+        /// <summary>
+        /// AudioSourceの初期音量・ピッチをキャッシュ
+        /// </summary>
+        /// <param name="sources">AudioSource配列</param>
+        /// <param name="volumes">出力：音量配列</param>
+        /// <param name="pitches">出力：ピッチ配列</param>
+        public static void CacheAudioProperties(AudioSource[] sources, out float[] volumes, out float[] pitches)
+        {
+            volumes = new float[sources.Length];
+            pitches = new float[sources.Length];
+            for (int i = 0; i < sources.Length; i++)
+            {
+                if (!sources[i]) continue;
+                volumes[i] = sources[i].volume;
+                pitches[i] = sources[i].pitch;
+            }
+        }
     }
 }
