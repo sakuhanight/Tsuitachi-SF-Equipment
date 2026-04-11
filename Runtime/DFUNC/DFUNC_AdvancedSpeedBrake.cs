@@ -30,9 +30,13 @@ namespace TSFE.DFUNC
         [System.NonSerialized] public int DialPosition = -999;
         [System.NonSerialized] public SaccEntity EntityControl;
 
-        private Animator vehicleAnimator;
-        private Transform controlsRoot;
+        // 標準状態変数
+        private bool isPilot, isOwner, selected, hasPilot;
         private VRCPlayerApi.TrackingDataType trackingTarget;
+        private Transform controlsRoot;
+
+        // コンポーネント固有の状態
+        private Animator vehicleAnimator;
 
         [UdonSynced(UdonSyncMode.Smooth)][FieldChangeCallback(nameof(TargetAngle))] private float _targetAngle;
         public float TargetAngle
@@ -65,7 +69,6 @@ namespace TSFE.DFUNC
             get => _angle;
         }
 
-        private bool isPilot, isSelected;
         private Vector3 prevHandPosition;
         private bool _triggerState;
         private bool TriggerState
@@ -88,39 +91,75 @@ namespace TSFE.DFUNC
         }
         public void DFUNC_Selected()
         {
-            isSelected = true;
+            selected = true;
+
+            // LeftDialに応じてtrackingTargetを設定（保険）
+            trackingTarget = LeftDial
+                ? VRCPlayerApi.TrackingDataType.LeftHand
+                : VRCPlayerApi.TrackingDataType.RightHand;
+
             // 非Ownerが選択した場合、Ownershipを取得
-            if (!Networking.IsOwner(gameObject))
+            if (!isOwner)
             {
                 Networking.SetOwner(Networking.LocalPlayer, gameObject);
             }
         }
-        public void DFUNC_Deselected() { isSelected = false; }
+
+        public void DFUNC_Deselected() { selected = false; }
 
         public void SFEXT_L_EntityStart()
         {
             vehicleAnimator = (Animator)SAVControl.GetProgramVariable("VehicleAnimator");
             controlsRoot = (Transform)SAVControl.GetProgramVariable("ControlsRoot");
             if (!controlsRoot) controlsRoot = EntityControl.transform;
-            SFEXT_G_ReAppear();
+
+            isOwner = Networking.IsOwner(gameObject);
+            ResetStatus();
         }
 
-        public void SFEXT_G_ReAppear()
+        public void SFEXT_O_PilotEnter()
+        {
+            isPilot = true;
+            isOwner = true;
+            selected = false;
+        }
+
+        public void SFEXT_O_PilotExit()
+        {
+            isPilot = false;
+            selected = false;
+        }
+
+        public void SFEXT_O_TakeOwnership() { isOwner = true; }
+        public void SFEXT_O_LoseOwnership() { isOwner = false; }
+
+        public void SFEXT_G_PilotEnter()
+        {
+            hasPilot = true;
+            gameObject.SetActive(true);
+        }
+
+        public void SFEXT_G_PilotExit()
+        {
+            hasPilot = false;
+            gameObject.SetActive(false);
+        }
+
+        public void SFEXT_G_Explode() { ResetStatus(); }
+        public void SFEXT_G_RespawnButton() { ResetStatus(); }
+
+        private void ResetStatus()
         {
             TargetAngle = 0;
             Angle = 0;
         }
-        public void SFEXT_G_PilotEnter() { gameObject.SetActive(true); }
-        public void SFEXT_G_PilotExit() { gameObject.SetActive(false); }
-        public void SFEXT_O_PilotEnter() { isPilot = true; }
-        public void SFEXT_O_PilotExit() { isPilot = false; isSelected = false; }
 
         private void Update()
         {
-            // isPilot（左席Owner）または isSelected（ダイヤル選択中）なら入力処理
-            if (isPilot || isSelected)
+            // isPilot（左席Owner）または selected（ダイヤル選択中）なら入力処理
+            if (isPilot || selected)
             {
-                TriggerState = isSelected && TSFEUtil.IsTriggerPressed(LeftDial);
+                TriggerState = selected && TSFEUtil.IsTriggerPressed(LeftDial);
                 if (Input.GetKeyDown(desktopKey)) TargetAngle = 1.0f;
                 else if (Input.GetKeyUp(desktopKey)) TargetAngle = 0.0f;
             }

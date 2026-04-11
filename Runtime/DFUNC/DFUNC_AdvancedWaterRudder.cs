@@ -24,12 +24,17 @@ namespace TSFE.DFUNC
         [System.NonSerialized] public bool LeftDial;
         [System.NonSerialized] public int DialPosition = -999;
 
+        // 標準状態変数
+        private bool isPilot, isOwner, selected, hasPilot;
+        private VRCPlayerApi.TrackingDataType trackingTarget;
+        private Transform controlsRoot;
+
+        // コンポーネント固有の状態
         private Animator vehicleAnimator;
         private Rigidbody vehicleRigidbody;
         private float rudderAngle;
         private Vector3 localForce;
         private float forceMultiplier;
-        private bool selected;
         private bool prevTrigger;
 
         [UdonSynced][FieldChangeCallback(nameof(Extracted))] private bool _extracted;
@@ -53,34 +58,85 @@ namespace TSFE.DFUNC
         {
             vehicleRigidbody = (Rigidbody)SAVControl.GetProgramVariable("VehicleRigidbody");
             vehicleAnimator = (Animator)SAVControl.GetProgramVariable("VehicleAnimator");
+            controlsRoot = (Transform)SAVControl.GetProgramVariable("ControlsRoot");
+            if (!controlsRoot) controlsRoot = EntityControl.transform;
 
+            isOwner = Networking.IsOwner(gameObject);
             UpdateActive();
-            SFEXT_G_Reappear();
+            ResetStatus();
         }
 
         public void SFEXT_O_PilotEnter()
         {
+            isPilot = true;
+            isOwner = true;
             selected = false;
             UpdateActive();
         }
 
         public void SFEXT_O_PilotExit()
         {
+            isPilot = false;
             selected = false;
             UpdateActive();
+        }
+
+        public void SFEXT_O_TakeOwnership() { isOwner = true; }
+        public void SFEXT_O_LoseOwnership() { isOwner = false; }
+
+        public void SFEXT_G_PilotEnter()
+        {
+            hasPilot = true;
+            gameObject.SetActive(true);
+        }
+
+        public void SFEXT_G_PilotExit()
+        {
+            hasPilot = false;
         }
 
         public void SFEXT_G_TakeOff() => UpdateActive();
         public void SFEXT_G_TouchDownWater() => UpdateActive();
 
-        public void SFEXT_G_RespawnButton() => SFEXT_G_Reappear();
-        public void SFEXT_G_Reappear()
+        public void SFEXT_G_Explode() { ResetStatus(); }
+        public void SFEXT_G_RespawnButton() { ResetStatus(); }
+
+        private void ResetStatus()
         {
             Extracted = defaultExtracted;
-            if (Networking.IsOwner(gameObject)) RequestSerialization();
+            if (isOwner)
+            {
+                RequestSerialization();
+            }
         }
 
-        public void DFUNC_Selected() { selected = true; prevTrigger = true; }
+        public void DFUNC_LeftDial()
+        {
+            trackingTarget = VRCPlayerApi.TrackingDataType.LeftHand;
+        }
+
+        public void DFUNC_RightDial()
+        {
+            trackingTarget = VRCPlayerApi.TrackingDataType.RightHand;
+        }
+
+        public void DFUNC_Selected()
+        {
+            selected = true;
+            prevTrigger = true;
+
+            // LeftDialに応じてtrackingTargetを設定（保険）
+            trackingTarget = LeftDial
+                ? VRCPlayerApi.TrackingDataType.LeftHand
+                : VRCPlayerApi.TrackingDataType.RightHand;
+
+            // 非Ownerが選択した場合、Ownershipを取得
+            if (!isOwner)
+            {
+                Networking.SetOwner(Networking.LocalPlayer, gameObject);
+            }
+        }
+
         public void DFUNC_Deselected() { selected = false; }
 
         public void KeyboardInput() => Toggle();
@@ -142,18 +198,30 @@ namespace TSFE.DFUNC
 
         public void Extract()
         {
+            if (!isOwner)
+            {
+                Networking.SetOwner(Networking.LocalPlayer, gameObject);
+            }
             Extracted = true;
             RequestSerialization();
         }
 
         public void Retract()
         {
+            if (!isOwner)
+            {
+                Networking.SetOwner(Networking.LocalPlayer, gameObject);
+            }
             Extracted = false;
             RequestSerialization();
         }
 
         public void Toggle()
         {
+            if (!isOwner)
+            {
+                Networking.SetOwner(Networking.LocalPlayer, gameObject);
+            }
             Extracted = !Extracted;
             RequestSerialization();
         }
