@@ -25,16 +25,32 @@ namespace TSFE.DFUNC
         [System.NonSerialized] public bool LeftDial;
         [System.NonSerialized] public int DialPosition = -999;
 
-        private bool selected, isPilot;
+        // 標準状態変数
+        private bool isPilot, isOwner, selected, hasPilot;
+        private VRCPlayerApi.TrackingDataType trackingTarget;
+
+        // コンポーネント固有の状態
         private bool triggerLastFrame;
 
-        public void DFUNC_LeftDial() { }
-        public void DFUNC_RightDial() { }
+        public void DFUNC_LeftDial()
+        {
+            trackingTarget = VRCPlayerApi.TrackingDataType.LeftHand;
+        }
+
+        public void DFUNC_RightDial()
+        {
+            trackingTarget = VRCPlayerApi.TrackingDataType.RightHand;
+        }
 
         public void DFUNC_Selected()
         {
             selected = true;
             triggerLastFrame = false;
+
+            // LeftDialに応じてtrackingTargetを設定（保険）
+            trackingTarget = LeftDial
+                ? VRCPlayerApi.TrackingDataType.LeftHand
+                : VRCPlayerApi.TrackingDataType.RightHand;
         }
 
         public void DFUNC_Deselected()
@@ -48,6 +64,7 @@ namespace TSFE.DFUNC
             {
                 SAVControl = EntityControl.GetExtention(GetUdonTypeName<SaccAirVehicle>());
             }
+            isOwner = Networking.IsOwner(gameObject);
             TSFEUtil.SetDialFuncon(Dial_Funcon, Dial_Funcon_Array, false);
             gameObject.SetActive(false);
         }
@@ -55,14 +72,38 @@ namespace TSFE.DFUNC
         public void SFEXT_O_PilotEnter()
         {
             isPilot = true;
-            gameObject.SetActive(true);
+            isOwner = true;
+            selected = false;
         }
 
         public void SFEXT_O_PilotExit()
         {
             isPilot = false;
             selected = false;
+        }
+
+        public void SFEXT_O_TakeOwnership() { isOwner = true; }
+        public void SFEXT_O_LoseOwnership() { isOwner = false; }
+
+        public void SFEXT_G_PilotEnter()
+        {
+            hasPilot = true;
+            gameObject.SetActive(true);
+        }
+
+        public void SFEXT_G_PilotExit()
+        {
+            hasPilot = false;
             gameObject.SetActive(false);
+        }
+
+        public void SFEXT_G_Explode() { ResetStatus(); }
+        public void SFEXT_G_RespawnButton() { ResetStatus(); }
+
+        private void ResetStatus()
+        {
+            // リバーサーをオフに戻す（必要に応じて）
+            TSFEUtil.SetDialFuncon(Dial_Funcon, Dial_Funcon_Array, false);
         }
 
         public void KeyboardInput()

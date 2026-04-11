@@ -2,6 +2,7 @@ using UdonSharp;
 using UnityEngine;
 using VRC.SDKBase;
 using SaccFlightAndVehicles;
+using TSFE.Utility;
 
 namespace TSFE.DFUNC
 {
@@ -26,153 +27,115 @@ namespace TSFE.DFUNC
         public KeyCode keyCode = KeyCode.G;
 
         [Header("表示設定")]
-        [Tooltip("トグル時に有効/無効を切り替えるGameObject配列")]
-        public GameObject[] Dial_Funcon;
+        [Tooltip("ダイヤル表示GameObject")]
+        public GameObject Dial_Funcon;
+        [Tooltip("ダイヤル表示GameObject配列")]
+        public GameObject[] Dial_Funcon_Array;
 
         // SaccFlightAndVehicles自動注入フィールド
         [System.NonSerialized] public SaccEntity EntityControl;
         [System.NonSerialized] public int DialPosition = -999;
         [System.NonSerialized] public bool LeftDial = false;
 
-        private bool isSelected = false;
-        private bool isPilot = false;
+        // 標準状態変数
+        private bool isPilot, isOwner, selected, hasPilot;
+        private VRCPlayerApi.TrackingDataType trackingTarget;
+
+        // コンポーネント固有の状態
         private bool prevTriggerPressed = false;
 
         public void SFEXT_L_EntityStart()
         {
-            VRCPlayerApi localPlayer = Networking.LocalPlayer;
-            if (localPlayer != null && !EntityControl.IsOwner)
-            {
-                gameObject.SetActive(false);
-            }
-            else
-            {
-                gameObject.SetActive(true);
-            }
-
-            Debug.Log($"[DFUNC_MethodCaller] SFEXT_L_EntityStart: IsOwner={EntityControl.IsOwner}, active={gameObject.activeInHierarchy}");
-            // Funconの初期状態を非表示にする
-            if (Dial_Funcon != null)
-            {
-                for (int i = 0; i < Dial_Funcon.Length; i++)
-                {
-                    if (Dial_Funcon[i] != null)
-                    {
-                        Dial_Funcon[i].SetActive(false);
-                    }
-                }
-            }
-        }
-
-        void Start()
-        {
-            Debug.Log($"[DFUNC_MethodCaller] Start: isPilot={isPilot}, EntityControl={(EntityControl != null ? "OK" : "NULL")}");
+            isOwner = Networking.IsOwner(gameObject);
+            TSFEUtil.SetDialFuncon(Dial_Funcon, Dial_Funcon_Array, false);
+            gameObject.SetActive(false);
         }
 
         void Update()
         {
-            // 常時デバッグ（60フレームごと）
-            if (Time.frameCount % 60 == 0)
+            if (!isPilot && !selected) return;
+
+            // VRトリガー入力
+            if (selected)
             {
-                Debug.Log($"[DFUNC_MethodCaller] Update: isPilot={isPilot}, isSelected={isSelected}, LeftDial={LeftDial}");
-            }
-
-            if (isPilot)
-            {
-                // VRトリガー入力チェック（選択中のみ、該当する側のトリガーのみ）
-                if (isSelected)
+                bool triggerPressed = TSFEUtil.IsTriggerPressed(LeftDial);
+                if (triggerPressed && !prevTriggerPressed)
                 {
-                    float trigger;
-                    if (LeftDial)
-                    {
-                        trigger = Input.GetAxisRaw("Oculus_CrossPlatform_PrimaryIndexTrigger");
-                    }
-                    else
-                    {
-                        trigger = Input.GetAxisRaw("Oculus_CrossPlatform_SecondaryIndexTrigger");
-                    }
-
-                    // デバッグ: トリガー値表示
-                    if (Time.frameCount % 60 == 0)
-                    {
-                        Debug.Log($"[DFUNC_MethodCaller] Trigger value: {trigger:F3}");
-                    }
-
-                    // トリガー押下判定（0.75以上で押下）
-                    bool triggerPressed = trigger > 0.75f;
-                    if (triggerPressed && !prevTriggerPressed)
-                    {
-                        Debug.Log($"[DFUNC_MethodCaller] Trigger pressed! Executing method.");
-                        ExecuteMethod();
-                    }
-                    prevTriggerPressed = triggerPressed;
-                }
-                else
-                {
-                    prevTriggerPressed = false;
-                }
-
-                // キー入力チェック
-                if (keyCode != KeyCode.None && Input.GetKeyDown(keyCode))
-                {
-                    Debug.Log($"[DFUNC_MethodCaller] Key pressed: {keyCode}");
                     ExecuteMethod();
                 }
+                prevTriggerPressed = triggerPressed;
+            }
+            else
+            {
+                prevTriggerPressed = false;
+            }
+
+            // キー入力
+            if (keyCode != KeyCode.None && Input.GetKeyDown(keyCode))
+            {
+                ExecuteMethod();
             }
         }
 
-        // ========================================
-        // SaccFlightAndVehicles イベント
-        // ========================================
+        public void DFUNC_LeftDial()
+        {
+            trackingTarget = VRCPlayerApi.TrackingDataType.LeftHand;
+        }
+
+        public void DFUNC_RightDial()
+        {
+            trackingTarget = VRCPlayerApi.TrackingDataType.RightHand;
+        }
+
+        public void DFUNC_Selected()
+        {
+            selected = true;
+
+            // LeftDialに応じてtrackingTargetを設定（保険）
+            trackingTarget = LeftDial
+                ? VRCPlayerApi.TrackingDataType.LeftHand
+                : VRCPlayerApi.TrackingDataType.RightHand;
+        }
+
+        public void DFUNC_Deselected()
+        {
+            selected = false;
+        }
 
         public void SFEXT_O_PilotEnter()
         {
             isPilot = true;
-            Debug.Log($"[DFUNC_MethodCaller] SFEXT_O_PilotEnter: isPilot={isPilot}");
+            isOwner = true;
+            selected = false;
         }
 
         public void SFEXT_O_PilotExit()
         {
             isPilot = false;
-            Debug.Log($"[DFUNC_MethodCaller] SFEXT_O_PilotExit: isPilot={isPilot}");
+            selected = false;
         }
 
-        public void SFEXT_O_TakeOwnership()
+        public void SFEXT_O_TakeOwnership() { isOwner = true; }
+        public void SFEXT_O_LoseOwnership() { isOwner = false; }
+
+        public void SFEXT_G_PilotEnter()
         {
+            hasPilot = true;
             gameObject.SetActive(true);
-            Debug.Log($"[DFUNC_MethodCaller] SFEXT_O_TakeOwnership: active={gameObject.activeInHierarchy}");
         }
 
-        public void SFEXT_O_LoseOwnership()
+        public void SFEXT_G_PilotExit()
         {
+            hasPilot = false;
             gameObject.SetActive(false);
-            Debug.Log($"[DFUNC_MethodCaller] SFEXT_O_LoseOwnership: active={gameObject.activeInHierarchy}");
         }
 
-        // ========================================
-        // DFUNC イベント
-        // ========================================
+        public void SFEXT_G_Explode() { ResetStatus(); }
+        public void SFEXT_G_RespawnButton() { ResetStatus(); }
 
-        public void DFUNC_Selected()
+        private void ResetStatus()
         {
-            Debug.Log($"[DFUNC_MethodCaller] DFUNC_Selected called");
-            isSelected = true;
-        }
-
-        public void DFUNC_Deselected()
-        {
-            Debug.Log($"[DFUNC_MethodCaller] DFUNC_Deselected called");
-            isSelected = false;
-        }
-
-        public void DFUNC_LeftDial()
-        {
-            // 標準DFUNCでは使用しない（Updateでトリガー監視）
-        }
-
-        public void DFUNC_RightDial()
-        {
-            // 標準DFUNCでは使用しない（Updateでトリガー監視）
+            TSFEUtil.SetDialFuncon(Dial_Funcon, Dial_Funcon_Array, false);
         }
 
         /// <summary>
@@ -183,45 +146,15 @@ namespace TSFE.DFUNC
             ExecuteMethod();
         }
 
-        /// <summary>
-        /// 実際のメソッド実行
-        /// </summary>
         private void ExecuteMethod()
         {
-            if (targetComponent == null)
-            {
-                Debug.LogWarning("[DFUNC_MethodCaller] Target component is null");
-                return;
-            }
+            if (!targetComponent || string.IsNullOrEmpty(methodName)) return;
 
-            if (string.IsNullOrEmpty(methodName))
-            {
-                Debug.LogWarning("[DFUNC_MethodCaller] Method name is empty");
-                return;
-            }
-
-            Debug.Log($"[DFUNC_MethodCaller] Calling {targetComponent.GetType().Name}.{methodName}()");
             targetComponent.SendCustomEvent(methodName);
 
-            // メソッド実行後、FUNCONの状態を切り替え
-            ToggleFunconDisplay();
-        }
-
-        /// <summary>
-        /// Funcon表示を切り替え（トグル）
-        /// </summary>
-        private void ToggleFunconDisplay()
-        {
-            if (Dial_Funcon != null)
-            {
-                for (int i = 0; i < Dial_Funcon.Length; i++)
-                {
-                    if (Dial_Funcon[i] != null)
-                    {
-                        Dial_Funcon[i].SetActive(!Dial_Funcon[i].activeSelf);
-                    }
-                }
-            }
+            // Funcon表示をトグル
+            bool isActive = Dial_Funcon ? Dial_Funcon.activeSelf : (Dial_Funcon_Array != null && Dial_Funcon_Array.Length > 0 ? Dial_Funcon_Array[0].activeSelf : false);
+            TSFEUtil.SetDialFuncon(Dial_Funcon, Dial_Funcon_Array, !isActive);
         }
     }
 }
