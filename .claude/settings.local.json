@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Read(//e/sync1/unity/AdvancedSacc-World/Packages/io.github.sacchan-vrc.sacc-flight-and-vehicles/Scripts/SaccAirVehicle/**)"
-    ],
-    "deny": [],
-    "ask": []
-  }
-}

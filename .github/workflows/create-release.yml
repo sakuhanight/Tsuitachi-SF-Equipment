@@ -1,0 +1,169 @@
+name: Create Release with Version Update
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., 1.0.0 - without v prefix)'
+        required: true
+        type: string
+
+jobs:
+  update-version-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate version format
+        run: |
+          if ! echo "${{ github.event.inputs.version }}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Error: Version must be in format X.Y.Z (e.g., 1.0.0)"
+            exit 1
+          fi
+
+      - name: Update package.json version
+        run: |
+          PACKAGE_JSON="packages/net.tsuitachi.sf-equipment/package.json"
+
+          # Update version field
+          jq --arg version "${{ github.event.inputs.version }}" '.version = $version' "$PACKAGE_JSON" > tmp.json
+          mv tmp.json "$PACKAGE_JSON"
+
+          # Display updated package.json
+          echo "Updated package.json:"
+          cat "$PACKAGE_JSON"
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          # Get the latest tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          if [ -z "$LATEST_TAG" ]; then
+            echo "No previous tags found. Generating notes from all commits."
+            COMMITS=$(git log --oneline --pretty=format:"- %s (%h)" | head -20)
+          else
+            echo "Generating notes from commits since $LATEST_TAG"
+            COMMITS=$(git log ${LATEST_TAG}..HEAD --oneline --pretty=format:"- %s (%h)")
+          fi
+
+          # Create release notes
+          {
+            echo "RELEASE_NOTES<<EOF"
+            echo "## Changes"
+            echo ""
+            echo "$COMMITS"
+            echo ""
+            echo "---"
+            echo ""
+            echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${LATEST_TAG}...v${{ github.event.inputs.version }}"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+      - name: Commit version update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add packages/net.tsuitachi.sf-equipment/package.json
+          git commit -m "Bump version to ${{ github.event.inputs.version }}
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
+
+      - name: Create and push tag
+        run: |
+          git tag -a "v${{ github.event.inputs.version }}" -m "Release v${{ github.event.inputs.version }}"
+          git push origin master
+          git push origin "v${{ github.event.inputs.version }}"
+
+      - name: Create package ZIP
+        run: |
+          cd packages/net.tsuitachi.sf-equipment
+
+          # Create ZIP with package contents
+          zip -r ../../${{ github.event.repository.name }}-v${{ github.event.inputs.version }}.zip . \
+            -x '*.git*' \
+            -x '*.DS_Store' \
+            -x '*~' \
+            -x '*.meta.bak'
+
+          cd ../..
+
+          # Display ZIP info
+          ls -lh ${{ github.event.repository.name }}-v${{ github.event.inputs.version }}.zip
+          echo "ZIP contents (first 20 lines):"
+          unzip -l ${{ github.event.repository.name }}-v${{ github.event.inputs.version }}.zip | head -20
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.event.inputs.version }}
+          name: Release v${{ github.event.inputs.version }}
+          body: ${{ steps.release_notes.outputs.RELEASE_NOTES }}
+          draft: false
+          prerelease: false
+          files: |
+            ${{ github.event.repository.name }}-v${{ github.event.inputs.version }}.zip
+
+  publish-to-vpm:
+    needs: update-version-and-release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: v${{ github.event.inputs.version }}
+
+      - name: Parse Unity package.json
+        id: package
+        run: |
+          PACKAGE_JSON="packages/net.tsuitachi.sf-equipment/package.json"
+
+          PACKAGE_NAME=$(jq -r '.name' "$PACKAGE_JSON")
+          DISPLAY_NAME=$(jq -r '.displayName' "$PACKAGE_JSON")
+          DESCRIPTION=$(jq -r '.description // ""' "$PACKAGE_JSON")
+          AUTHOR=$(jq -c '.author // {"name": "sakuhanight"}' "$PACKAGE_JSON")
+          UNITY=$(jq -r '.unity // ""' "$PACKAGE_JSON")
+          LICENSE=$(jq -r '.license // ""' "$PACKAGE_JSON")
+          VPM_DEPS=$(jq -c '.vpmDependencies // {}' "$PACKAGE_JSON")
+
+          echo "name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
+          echo "display_name=$DISPLAY_NAME" >> $GITHUB_OUTPUT
+          echo "description=$DESCRIPTION" >> $GITHUB_OUTPUT
+          echo "author=$AUTHOR" >> $GITHUB_OUTPUT
+          echo "unity=$UNITY" >> $GITHUB_OUTPUT
+          echo "license=$LICENSE" >> $GITHUB_OUTPUT
+          echo "vpm_dependencies=$VPM_DEPS" >> $GITHUB_OUTPUT
+
+      - name: Call VPM update workflow
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: update-package.yml
+          repo: sakuhanight/vpm.t7i.io
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+          inputs: |
+            {
+              "package_name": "${{ steps.package.outputs.name }}",
+              "package_display_name": "${{ steps.package.outputs.display_name }}",
+              "package_version": "${{ github.event.inputs.version }}",
+              "release_url": "https://github.com/${{ github.repository }}/releases/download/v${{ github.event.inputs.version }}/${{ github.event.repository.name }}-v${{ github.event.inputs.version }}.zip",
+              "package_description": "${{ steps.package.outputs.description }}",
+              "package_author": "${{ steps.package.outputs.author }}",
+              "unity_version": "${{ steps.package.outputs.unity }}",
+              "license": "${{ steps.package.outputs.license }}",
+              "homepage": "https://github.com/${{ github.repository }}",
+              "documentation_url": "https://github.com/${{ github.repository }}/wiki",
+              "changelog_url": "https://github.com/${{ github.repository }}/releases",
+              "repository": "{\"type\": \"git\", \"url\": \"https://github.com/${{ github.repository }}.git\"}",
+              "vpm_dependencies": "${{ steps.package.outputs.vpm_dependencies }}"
+            }

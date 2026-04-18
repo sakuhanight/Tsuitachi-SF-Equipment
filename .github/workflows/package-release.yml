@@ -1,0 +1,155 @@
+# パッケージリポジトリ用ワークフロー：タグプッシュで全自動化
+# このファイルを各パッケージリポジトリの .github/workflows/ にコピーしてください
+#
+# 使い方:
+# 1. PACKAGE_JSON のパスを Unity package.json に合わせて修正（行33, 108）
+# 2. package_dir を修正（行50）
+# 3. VPMリポジトリ名を修正（行130）
+# 4. git tag v1.0.0 && git push --tags を実行
+# → 自動的に ZIP作成 → GitHub Release → VPM登録 が完了
+
+name: Build and Publish to VPM
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set version from tag
+        id: version
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Parse Unity package.json
+        id: package
+        run: |
+          # Unity package.json のパスを指定
+          PACKAGE_JSON="packages/net.tsuitachi.sf-equipment/package.json"
+
+          PACKAGE_NAME=$(jq -r '.name' "$PACKAGE_JSON")
+          DISPLAY_NAME=$(jq -r '.displayName' "$PACKAGE_JSON")
+          DESCRIPTION=$(jq -r '.description // ""' "$PACKAGE_JSON")
+          AUTHOR=$(jq -c '.author // "sakuhanight"' "$PACKAGE_JSON")
+          UNITY=$(jq -r '.unity // ""' "$PACKAGE_JSON")
+          LICENSE=$(jq -r '.license // ""' "$PACKAGE_JSON")
+          VPM_DEPS=$(jq -c '.vpmDependencies // {}' "$PACKAGE_JSON")
+
+          echo "name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
+          echo "display_name=$DISPLAY_NAME" >> $GITHUB_OUTPUT
+          echo "description=$DESCRIPTION" >> $GITHUB_OUTPUT
+          echo "author=$AUTHOR" >> $GITHUB_OUTPUT
+          echo "unity=$UNITY" >> $GITHUB_OUTPUT
+          echo "license=$LICENSE" >> $GITHUB_OUTPUT
+          echo "vpm_dependencies=$VPM_DEPS" >> $GITHUB_OUTPUT
+          echo "package_dir=packages/net.tsuitachi.sf-equipment" >> $GITHUB_OUTPUT
+
+      - name: Create package ZIP
+        run: |
+          # パッケージディレクトリに移動してZIP作成
+          # ZIPのルートにpackage.jsonが来るようにする
+          cd ${{ steps.package.outputs.package_dir }}
+
+          # 不要なファイルを除外してZIP作成
+          zip -r ../../${{ github.event.repository.name }}-${{ steps.version.outputs.tag }}.zip . \
+            -x '*.git*' \
+            -x '*.DS_Store' \
+            -x '*~' \
+            -x '*.meta.bak'
+
+          cd ../..
+
+          # ZIP情報を表示
+          ls -lh ${{ github.event.repository.name }}-${{ steps.version.outputs.tag }}.zip
+          unzip -l ${{ github.event.repository.name }}-${{ steps.version.outputs.tag }}.zip | head -20
+
+      - name: Calculate SHA256
+        id: sha256
+        run: |
+          SHA256=$(sha256sum ${{ github.event.repository.name }}-${{ steps.version.outputs.tag }}.zip | awk '{print $1}')
+          echo "hash=$SHA256" >> $GITHUB_OUTPUT
+          echo "SHA256: $SHA256"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Release ${{ steps.version.outputs.tag }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            ${{ github.event.repository.name }}-${{ steps.version.outputs.tag }}.zip
+
+  publish-to-vpm:
+    needs: build-and-release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set version from tag
+        id: version
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Parse Unity package.json
+        id: package
+        run: |
+          PACKAGE_JSON="packages/net.tsuitachi.sf-equipment/package.json"
+
+          PACKAGE_NAME=$(jq -r '.name' "$PACKAGE_JSON")
+          DISPLAY_NAME=$(jq -r '.displayName' "$PACKAGE_JSON")
+          DESCRIPTION=$(jq -r '.description // ""' "$PACKAGE_JSON")
+          AUTHOR=$(jq -c '.author // "朔日工房"' "$PACKAGE_JSON")
+          UNITY=$(jq -r '.unity // ""' "$PACKAGE_JSON")
+          LICENSE=$(jq -r '.license // ""' "$PACKAGE_JSON")
+          VPM_DEPS=$(jq -c '.vpmDependencies // {}' "$PACKAGE_JSON")
+
+          echo "name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
+          echo "display_name=$DISPLAY_NAME" >> $GITHUB_OUTPUT
+          echo "description=$DESCRIPTION" >> $GITHUB_OUTPUT
+          echo "author=$AUTHOR" >> $GITHUB_OUTPUT
+          echo "unity=$UNITY" >> $GITHUB_OUTPUT
+          echo "license=$LICENSE" >> $GITHUB_OUTPUT
+          echo "vpm_dependencies=$VPM_DEPS" >> $GITHUB_OUTPUT
+
+      - name: Call VPM update workflow
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: update-package.yml
+          repo: sakuhanight/vpm.t7i.io
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+          inputs: |
+            {
+              "package_name": "${{ steps.package.outputs.name }}",
+              "package_display_name": "${{ steps.package.outputs.display_name }}",
+              "package_version": "${{ steps.version.outputs.version }}",
+              "release_url": "https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/${{ github.event.repository.name }}-${{ steps.version.outputs.tag }}.zip",
+              "package_description": "${{ steps.package.outputs.description }}",
+              "package_author": "${{ steps.package.outputs.author }}",
+              "unity_version": "${{ steps.package.outputs.unity }}",
+              "license": "${{ steps.package.outputs.license }}",
+              "homepage": "https://github.com/${{ github.repository }}",
+              "documentation_url": "https://github.com/${{ github.repository }}/wiki",
+              "changelog_url": "https://github.com/${{ github.repository }}/releases",
+              "repository": "{\"type\": \"git\", \"url\": \"https://github.com/${{ github.repository }}.git\"}",
+              "vpm_dependencies": "${{ steps.package.outputs.vpm_dependencies }}"
+            }
