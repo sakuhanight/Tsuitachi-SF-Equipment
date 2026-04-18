@@ -147,7 +147,6 @@ jobs:
           echo "vpm_dependencies=$VPM_DEPS" >> $GITHUB_OUTPUT
 
       - name: Call VPM update workflow
-        if: vars.VPM_ENABLED == 'true'
         continue-on-error: true
         uses: benc-uk/workflow-dispatch@v1
         with:
