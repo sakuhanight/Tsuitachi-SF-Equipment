@@ -117,6 +117,8 @@ jobs:
 
   publish-to-vpm:
     needs: update-version-and-release
+    permissions:
+      contents: write
     uses: sakuhanight/vpm.t7i.io/.github/workflows/update-package.yml@main
     with:
       package_name: net.tsuitachi.sf-equipment
