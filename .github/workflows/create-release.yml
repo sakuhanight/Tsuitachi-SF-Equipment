@@ -117,57 +117,17 @@ jobs:
 
   publish-to-vpm:
     needs: update-version-and-release
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: v${{ github.event.inputs.version }}
-
-      - name: Parse Unity package.json
-        id: package
-        run: |
-          PACKAGE_JSON="packages/net.tsuitachi.sf-equipment/package.json"
-
-          PACKAGE_NAME=$(jq -r '.name' "$PACKAGE_JSON")
-          DISPLAY_NAME=$(jq -r '.displayName' "$PACKAGE_JSON")
-          DESCRIPTION=$(jq -r '.description // ""' "$PACKAGE_JSON")
-          AUTHOR_NAME=$(jq -r '.author.name // "sakuhanight"' "$PACKAGE_JSON")
-          UNITY=$(jq -r '.unity // ""' "$PACKAGE_JSON")
-          LICENSE=$(jq -r '.license // ""' "$PACKAGE_JSON")
-
-          # Extract VPM dependencies as space-separated key:value pairs
-          VPM_DEPS_JSON=$(jq -c '.vpmDependencies // {}' "$PACKAGE_JSON")
-
-          echo "name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
-          echo "display_name=$DISPLAY_NAME" >> $GITHUB_OUTPUT
-          echo "description=$DESCRIPTION" >> $GITHUB_OUTPUT
-          echo "author_name=$AUTHOR_NAME" >> $GITHUB_OUTPUT
-          echo "unity=$UNITY" >> $GITHUB_OUTPUT
-          echo "license=$LICENSE" >> $GITHUB_OUTPUT
-          echo "vpm_dependencies=$VPM_DEPS_JSON" >> $GITHUB_OUTPUT
-
-      - name: Call VPM update workflow
-        continue-on-error: true
-        uses: benc-uk/workflow-dispatch@v1
-        with:
-          workflow: update-package.yml
-          repo: sakuhanight/vpm.t7i.io
-          ref: main
-          token: ${{ secrets.VPM_REPO_PAT }}
-          inputs: >-
-            {
-              "package_name": "${{ steps.package.outputs.name }}",
-              "package_display_name": "${{ steps.package.outputs.display_name }}",
-              "package_version": "${{ github.event.inputs.version }}",
-              "release_url": "https://github.com/${{ github.repository }}/releases/download/v${{ github.event.inputs.version }}/${{ github.event.repository.name }}-v${{ github.event.inputs.version }}.zip",
-              "package_description": "${{ steps.package.outputs.description }}",
-              "package_author_name": "${{ steps.package.outputs.author_name }}",
-              "unity_version": "${{ steps.package.outputs.unity }}",
-              "license": "${{ steps.package.outputs.license }}",
-              "homepage": "https://github.com/${{ github.repository }}",
-              "documentation_url": "https://github.com/${{ github.repository }}/wiki",
-              "changelog_url": "https://github.com/${{ github.repository }}/releases",
-              "vpm_dependencies": ${{ steps.package.outputs.vpm_dependencies }}
-            }
+    uses: sakuhanight/vpm.t7i.io/.github/workflows/update-package.yml@main
+    with:
+      package_name: net.tsuitachi.sf-equipment
+      package_display_name: Tsuitachi-SF-Equipment
+      package_version: ${{ github.event.inputs.version }}
+      release_url: https://github.com/${{ github.repository }}/releases/download/v${{ github.event.inputs.version }}/${{ github.event.repository.name }}-v${{ github.event.inputs.version }}.zip
+      package_description: Advanced equipment for SaccFlightAndVehicles 1.8
+      package_author: sakuhanight
+      unity_version: "2022.3"
+      license: MIT
+      homepage: https://github.com/${{ github.repository }}
+      documentation_url: https://github.com/${{ github.repository }}/wiki
+      changelog_url: https://github.com/${{ github.repository }}/releases
+    secrets: inherit
