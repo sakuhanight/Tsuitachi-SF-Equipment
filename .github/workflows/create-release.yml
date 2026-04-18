@@ -72,12 +72,18 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           git add packages/net.tsuitachi.sf-equipment/package.json
-          git commit -m "Bump version to ${{ github.event.inputs.version }}"
+
+          # Commit only if there are changes
+          if git diff --staged --quiet; then
+            echo "No changes to commit (version already up to date)"
+          else
+            git commit -m "Bump version to ${{ github.event.inputs.version }}"
+            git push origin master
+          fi
 
       - name: Create and push tag
         run: |
           git tag -a "v${{ github.event.inputs.version }}" -m "Release v${{ github.event.inputs.version }}"
-          git push origin master
           git push origin "v${{ github.event.inputs.version }}"
 
       - name: Create package ZIP
