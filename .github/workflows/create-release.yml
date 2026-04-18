@@ -147,12 +147,13 @@ jobs:
           echo "vpm_dependencies=$VPM_DEPS" >> $GITHUB_OUTPUT
 
       - name: Call VPM update workflow
+        if: ${{ secrets.VPM_REPO_PAT != '' }}
         uses: benc-uk/workflow-dispatch@v1
         with:
           workflow: update-package.yml
           repo: sakuhanight/vpm.t7i.io
           ref: main
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.VPM_REPO_PAT }}
           inputs: |
             {
               "package_name": "${{ steps.package.outputs.name }}",
