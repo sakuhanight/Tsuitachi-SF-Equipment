@@ -10,6 +10,7 @@
 
 - [DFUNC共通パターン](#dfunc共通パターン)
 - [SFEXT共通パターン](#sfext共通パターン)
+- [DFUNCとSFEXTの使い分け原則](#dfuncとsfextの使い分け原則)
 - [バスシステムパターン](#バスシステムパターン)
 - [同期パターン](#同期パターン)
 - [状態管理パターン](#状態管理パターン)
@@ -19,6 +20,7 @@
 - [アニメーション制御パターン](#アニメーション制御パターン)
 - [故障モデリングパターン](#故障モデリングパターン)
 - [リセット・初期化パターン](#リセット初期化パターン)
+- [外部制御パターン](#外部制御パターン)
 
 ---
 
@@ -168,6 +170,251 @@ private bool isPilot, isPassenger, isOwner;
 private Animator vehicleAnimator;
 private Rigidbody vehicleRigidbody;
 ```
+
+---
+
+## DFUNCとSFEXTの使い分け原則
+
+TSFEではコンポーネントを**DFUNC**と**SFEXT**の2種類に分類します。この使い分け基準を明確化します。
+
+### DFUNC = パイロットの物理コントロール
+
+**定義**: 現実のコックピットでパイロットが**手で直接操作する物理コントロール**の再現
+
+```
+現実のコックピットで...
+  ↓
+レバーを引く/押す
+スイッチをON/OFFする
+ダイヤルを回す
+トリムホイールを回す
+  ↓
+DFUNC実装
+```
+
+#### DFUNC実装の必要条件
+
+1. **VR/デスクトップ両対応の入力処理**
+   - VRダイヤル選択（`DFUNC_Selected()` / `DFUNC_Deselected()`）
+   - VR手追跡（`trackingTarget`）
+   - デスクトップキーバインド
+
+2. **パイロットの意識的な操作**
+   - レバー位置を変更する
+   - スイッチをトグルする
+   - トリムホイールを回す
+
+3. **即座の物理効果**
+   - ExtraDrag/ExtraLift変更
+   - SAVControlパラメータ変更
+   - アニメーション再生
+
+#### DFUNC実装例（TSFE）
+
+| コンポーネント | 現実の操作 | VR入力 | キー入力 |
+|-------------|----------|--------|---------|
+| **DFUNC_AdvancedFlaps** | フラップレバー | ダイヤル回転 | F / Shift+F |
+| **DFUNC_ElevatorTrim** | トリムホイール | 軸入力 | Up/Down |
+| **DFUNC_AdvancedSpeedBrake** | スピードブレーキレバー | ダイヤル回転 | B（ホールド） |
+| **DFUNC_ThrustReverser** | リバーサーレバー | ダイヤル回転 | V（トグル） |
+| **DFUNC_AdvancedParkingBrake** | パーキングブレーキレバー | ダイヤル回転 | P（トグル） |
+| **DFUNC_AdvancedWaterRudder** | ウォーターラダーレバー | ダイヤル回転 | キー |
+| **DFUNC_MethodCaller** | 汎用スイッチ | ダイヤル回転 | キー |
+
+---
+
+### SFEXT = システム・自動制御・拡張機能
+
+**定義**: 以下の**いずれか**に該当するコンポーネント
+
+#### カテゴリ1: 自動制御・補助システム
+
+**特性**: パイロット操作不要、条件ベースで自動動作
+
+| コンポーネント | 動作条件 |
+|-------------|---------|
+| **SFEXT_AutoFlaps** | 速度/AoA/G/Machベース |
+| **SFEXT_AutoStarter** | APU起動完了後、自動シーケンス |
+| **SFEXT_DihedralEffect** | 横滑り検出時 |
+| **SFEXT_WakeTurbulence** | 飛行中常時 |
+| **SFEXT_EngineFanDriver** | エンジンRPMベース |
+| **SFEXT_InstrumentsAnimationDriver** | SAV変数ベース |
+| **SFEXT_Warning** | エンジン異常検出時 |
+
+---
+
+#### カテゴリ2: 複雑な内部状態を持つシステム
+
+**特性**: State Enum、多数の内部変数、間接制御
+
+| コンポーネント | 内部状態 | 制御方法 |
+|-------------|---------|---------|
+| **SFEXT_AdvancedEngine** | `EngineState`, N1, N2, EGT, ECT | SAVのThrottle/EngineOn経由 |
+| **SFEXT_AuxiliaryPowerUnit** | `APUState`, RPM, EGT | SAVのStartボタン経由 |
+| **SFEXT_AdvancedPropellerThrust** | PropRPM, BladeAngle | SAVのThrottle経由 |
+
+**なぜSFEXT?**:
+```csharp
+// パイロットは直接N1/N2を操作しない
+// Throttle → SFEXT_AdvancedEngine → N1/N2計算 → Thrust出力
+SAVControl.SetProgramVariable("ThrottleStrength", thrust);
+```
+
+DFUNCとして実装するには**内部状態が複雑すぎる**ため、SFEXTとして分離。
+
+---
+
+#### カテゴリ3: 物理制約・依存システム
+
+**特性**: バスシステム依存、物理演算、拡張機能
+
+| コンポーネント | 依存システム | 理由 |
+|-------------|------------|------|
+| **SFEXT_AdvancedGear** | TSFE_HydraulicBus（計画） | 油圧バス統合、WheelCollider制御 |
+| **SFEXT_Chock** | なし | ワールド配置Pickup、Rigidbody制約 |
+| **SFEXT_EngineToggle** | なし | SAVのEngineOnを直接制御（UI用） |
+| **SFEXT_BoardingCollider** | なし | 搭乗判定コライダー制御 |
+
+**SFEXT_AdvancedGearの特殊性**:
+- 標準SFVに**DFUNC_Gear**が既存（GearUp/GearDownイベント発行）
+- SFEXT_AdvancedGearは**拡張機能**として動作
+  - WheelCollider物理制御
+  - 油圧バス統合（計画）
+  - 故障モデリング（タイヤバースト）
+  - ステアリング・ブレーキ制御
+
+```csharp
+// 標準DFUNC_Gearからイベント受信
+public void SFEXT_G_GearUp() { targetPosition = 0; }
+public void SFEXT_G_GearDown() { targetPosition = 1; }
+```
+
+---
+
+### 判定フローチャート
+
+新規コンポーネント実装時の判定：
+
+```
+┌────────────────────────────────────┐
+│ パイロットが手で直接操作する       │
+│ 物理コントロール（レバー/スイッチ）│
+│ か？                               │
+└─────────┬──────────────────────────┘
+          │
+    YES   │   NO
+          ↓
+    ┌─────────┐
+    │  DFUNC  │
+    └─────────┘
+          │
+          ↓
+    以下を実装:
+    • DFUNC_Selected/Deselected
+    • DFUNC_LeftDial/RightDial
+    • VR手追跡
+    • デスクトップキー
+
+          ↓
+┌────────────────────────────────────┐
+│ 以下のいずれかに該当するか？       │
+├────────────────────────────────────┤
+│ 1. 自動動作（パイロット操作不要）  │
+│ 2. 複雑な内部状態（State Enum等）  │
+│ 3. 他システム依存（バス等）        │
+│ 4. 間接制御（SAV経由）             │
+│ 5. 物理効果・視覚効果のみ          │
+│ 6. 既存DFUNCの拡張機能             │
+└─────────┬──────────────────────────┘
+          │
+    YES   │
+          ↓
+    ┌─────────┐
+    │  SFEXT  │
+    └─────────┘
+```
+
+---
+
+### 外部制御パターンとの関係
+
+DFUNCとSFEXTの使い分けは、外部制御パターンの設計にも影響します。
+
+#### 制御層の設計
+
+```
+┌─────────────────────────────────┐
+│  手動制御層（DFUNC）             │  ← パイロットの物理操作
+├─────────────────────────────────┤
+│ • VRダイヤル                     │
+│ • デスクトップキー               │
+│ • trackingTarget手追跡           │
+└──────────┬──────────────────────┘
+           │ TargetAngle (UdonSynced)
+           ↓
+┌─────────────────────────────────┐
+│  コアロジック層（DFUNC）         │  ← 物理・同期・アニメーション
+├─────────────────────────────────┤
+│ • ExtraDrag/ExtraLift計算        │
+│ • Udon同期                       │
+│ • 故障モデリング                 │
+└────┬─────────────────┬──────────┘
+     │                 │
+     ↓                 ↓
+┌─────────┐      ┌─────────────┐
+│ 自動制御 │      │  拡張機能   │
+│ (SFEXT) │      │  (SFEXT)    │
+├─────────┤      ├─────────────┤
+│ AutoFlaps│     │ ContactFlaps│
+└─────────┘      └─────────────┘
+  ↑ SetTargetAngle()
+```
+
+#### DFUNCに外部制御APIを実装
+
+```csharp
+// DFUNC_AdvancedFlaps, DFUNC_AdvancedSpeedBrake など
+public void SetTargetAngle(float angle)
+{
+    if (!isOwner) return;
+    if (isPilot || selected) return; // 手動操作が最優先
+    TargetAngle = angle;
+}
+
+public bool IsManualControlActive() => isPilot || selected;
+```
+
+#### SFEXTから呼び出す
+
+```csharp
+// SFEXT_AutoFlaps（自動制御）
+if (!flapsControl.IsManualControlActive())
+{
+    flapsControl.SetTargetAngle(autoAngle);
+}
+
+// SFEXT_ContactFlaps（VR物理レバー、将来実装）
+if (!flapsControl.IsManualControlActive())
+{
+    flapsControl.SetTargetDetent(contactDetent);
+}
+```
+
+---
+
+### 設計原則のまとめ
+
+| 観点 | DFUNC | SFEXT |
+|------|-------|-------|
+| **目的** | パイロットの物理操作再現 | システム・自動制御・拡張機能 |
+| **入力** | VRダイヤル + デスクトップキー | 条件ベース自動動作 or SAV経由 |
+| **状態複雑度** | シンプル（角度・detent等） | 複雑（State Enum、多数の変数） |
+| **依存性** | 独立動作 | バスシステム・他コンポーネント依存可 |
+| **必須実装** | DFUNC_Selected等のイベント | SFEXT_L_EntityStart等のライフサイクル |
+| **Ownership** | DFUNC_Selected時に取得 | isPilot時にOwner（通常） |
+| **同期** | Continuous（通常） | 機能による（None/Manual/Continuous） |
+
+**金言**: 「パイロットが手で触るものはDFUNC、触らないものはSFEXT」
 
 ---
 
@@ -777,6 +1024,242 @@ private void ResetToInitialState()
     }
 }
 ```
+
+---
+
+## 外部制御パターン
+
+DFUNCコンポーネント（FlapやSpeedBrakeなど）を複数の制御ソースから操作可能にする設計パターン。
+
+### 設計原則
+
+**制御層の分離**: DFUNCは物理・同期・アニメーションのコアロジックを担当し、外部制御APIを公開する。
+
+```
+┌─────────────────────────────────────┐
+│  制御入力層（複数可）                 │
+├─────────────────────────────────────┤
+│ • DFUNC手動操作（ダイヤル+デスクトップ）│
+│ • SFEXT_Auto* （自動制御）            │
+│ • SFEXT_Contact* （VR物理レバー）     │
+│ • SFEXT_Keyboard* （キーバインド）    │
+└──────────┬──────────────────────────┘
+           │ SetTargetAngle(), SetDetent() など
+           ↓
+┌─────────────────────────────────────┐
+│  DFUNC コアロジック層                 │
+├─────────────────────────────────────┤
+│ • 物理計算（ExtraDrag/ExtraLift）     │
+│ • アニメーション制御                   │
+│ • Udon同期（UdonSynced変数）          │
+│ • Ownership管理                       │
+│ • 故障モデリング                       │
+└─────────────────────────────────────┘
+```
+
+### 制御優先順位
+
+| 優先度 | 制御ソース | 条件 | 実装方法 |
+|-------|----------|------|---------|
+| **1** | 手動（ダイヤル/キー） | `isPilot \|\| selected` | DFUNC内部処理 |
+| **2** | Contact操作 | `!IsManualControlActive()` | `SFEXT_Contact*` → `SetTargetDetent()` |
+| **3** | 自動制御 | `!IsManualControlActive()` | `SFEXT_Auto*` → `SetTargetAngle()` |
+
+### DFUNC側の実装パターン
+
+```csharp
+public class DFUNC_AdvancedFlaps : UdonSharpBehaviour
+{
+    // ========== 外部制御API ==========
+    /// <summary>
+    /// 外部から目標角度を設定（自動制御用）
+    /// 手動制御中（isPilot || selected）は無視される
+    /// </summary>
+    public void SetTargetAngle(float angle)
+    {
+        if (!isOwner) return;                // OwnerチェックでローカルOwnerのみ制御可能
+        if (isPilot || selected) return;     // 手動制御が最優先
+        TargetAngle = angle;                 // UdonSynced変数なので自動同期
+    }
+
+    /// <summary>
+    /// 外部から目標Detentを設定（Contact操作用）
+    /// </summary>
+    public void SetTargetDetent(int index)
+    {
+        if (!isOwner) return;
+        if (isPilot || selected) return;
+        SetDetent(index);
+    }
+
+    /// <summary>
+    /// 手動制御が有効か確認（外部制御コンポーネントがチェックする）
+    /// </summary>
+    public bool IsManualControlActive()
+    {
+        return isPilot || selected;
+    }
+
+    // ========== 内部実装 ==========
+    private void Update()
+    {
+        if (!isOwner) return;
+
+        // 手動入力処理（既存実装）
+        if (isPilot || selected)
+        {
+            // VR/デスクトップ入力処理...
+            TriggerState = selected && TSFEUtil.IsTriggerPressed(LeftDial);
+            if (Input.GetKeyDown(flapsUpKey)) DecreaseDetent();
+            // ...
+        }
+
+        // 物理計算、アニメーション更新...
+    }
+}
+```
+
+### 自動制御SFEXT側の実装パターン
+
+```csharp
+public class SFEXT_AutoFlaps : UdonSharpBehaviour
+{
+    public DFUNC_AdvancedFlaps flapsControl;
+
+    private bool isPilot, isOwner;
+
+    public void SFEXT_O_PilotEnter()
+    {
+        isPilot = true;
+        isOwner = true;
+    }
+
+    public void SFEXT_O_PilotExit()
+    {
+        isPilot = false;
+    }
+
+    private void Update()
+    {
+        if (!isPilot) return;                             // パイロットのみ
+        if (!flapsControl) return;
+        if (flapsControl.IsManualControlActive()) return; // 手動制御中は何もしない
+
+        // 自動制御ロジック
+        float targetAngle = CalculateAutoFlaps();
+        flapsControl.SetTargetAngle(targetAngle);
+    }
+
+    private float CalculateAutoFlaps()
+    {
+        // 速度、AoA、Gベースの計算...
+        return calculatedAngle;
+    }
+}
+```
+
+### Contact操作SFEXT側の実装パターン
+
+```csharp
+public class SFEXT_ContactFlaps : UdonSharpBehaviour
+{
+    public DFUNC_AdvancedFlaps flapsControl;
+    public Transform flapsLeverTransform;
+
+    [Header("Lever Settings")]
+    public float leverMinAngle = 0f;
+    public float leverMaxAngle = 60f;
+
+    private bool isPilot;
+
+    public void SFEXT_O_PilotEnter() { isPilot = true; }
+    public void SFEXT_O_PilotExit() { isPilot = false; }
+
+    private void Update()
+    {
+        if (!isPilot) return;
+        if (!flapsControl) return;
+        if (flapsControl.IsManualControlActive()) return;
+
+        // レバー角度からdetent計算
+        float leverAngle = flapsLeverTransform.localEulerAngles.x;
+        if (leverAngle > 180f) leverAngle -= 360f; // -180~180に正規化
+
+        int detentCount = flapsControl.detentAngles.Length;
+        int targetDetent = Mathf.RoundToInt(
+            Mathf.InverseLerp(leverMinAngle, leverMaxAngle, leverAngle) * (detentCount - 1)
+        );
+
+        flapsControl.SetTargetDetent(targetDetent);
+    }
+}
+```
+
+### Ownership管理の原則
+
+- **DFUNCがOwnershipを持つ**: 物理計算とUdon同期のため
+- **外部制御コンポーネントはOwnership取得不要**: DFUNCのAPIを呼ぶだけ
+- **DFUNC_Selected時にOwnership取得**: ダイヤル選択時に自動取得
+
+```csharp
+// DFUNC側
+public void DFUNC_Selected()
+{
+    selected = true;
+    trackingTarget = LeftDial ? VRCPlayerApi.TrackingDataType.LeftHand
+                               : VRCPlayerApi.TrackingDataType.RightHand;
+
+    // 非Ownerが選択した場合、Ownershipを取得
+    if (!isOwner)
+    {
+        Networking.SetOwner(Networking.LocalPlayer, gameObject);
+    }
+}
+
+// 外部制御API（OwnerチェックでローカルOwnerのみ制御可能）
+public void SetTargetAngle(float angle)
+{
+    if (!isOwner) return; // 重要: Ownershipを取得せず、既存Ownerのみ制御
+    if (isPilot || selected) return;
+    TargetAngle = angle;
+}
+```
+
+### 実装例: DFUNC_AdvancedFlaps + SFEXT_AutoFlaps
+
+現在のTSFE実装では、このパターンが既に部分的に採用されています：
+
+**DFUNC_AdvancedFlaps.cs**:
+- `TargetAngle`プロパティが`public`（外部から設定可能）
+- `detentAngles`が`public`（外部から参照可能）
+
+**SFEXT_AutoFlaps.cs**:
+- `Update()`で`flapsControl.TargetAngle`を直接設定
+- パイロット搭乗時のみ動作（`isPilot`チェック）
+
+### 推奨される改善
+
+既存実装を明示的な外部制御パターンに準拠させる：
+
+1. **DFUNCに外部制御用メソッド追加**:
+   ```csharp
+   public void SetTargetAngle(float angle) { ... }
+   public bool IsManualControlActive() { return isPilot || selected; }
+   ```
+
+2. **SFEXTでチェック追加**:
+   ```csharp
+   if (flapsControl.IsManualControlActive()) return;
+   ```
+
+3. **Contact操作用SFEXTの作成** （必要に応じて）
+
+### 利点
+
+- **関心の分離**: 制御ロジックとコアロジックが独立
+- **拡張性**: 新しい制御方法を追加しやすい
+- **優先順位の明確化**: 手動 > Contact > 自動
+- **テスト容易性**: Mock実装でテスト可能
 
 ---
 

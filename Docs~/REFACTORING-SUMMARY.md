@@ -31,8 +31,16 @@
    - Ownership管理ライフサイクル実装
    - SFEXT_G_PilotEnter/Exit更新（hasPilot管理）
    - ResetStatus()メソッド実装（SFEXT_G_ReAppear()から統一）
+   - **Phase 1E追加修正（2026-04-11）:**
+     - DFUNC_Brakeパターンに完全準拠（差分更新方式）
+     - Update()でlastDrag/lastLift差分計算を毎フレーム実行
+     - Angleプロパティ簡素化（アニメーションのみ）
+     - isOwnerチェック追加
+     - Piloting状態確認をSAVControl経由に変更
+     - カスタムエディタ追加（PlayModeデバッグ表示）
+     - **検証完了**: SF-1で動作確認（dragMultiplier要調整）
 
-#### Phase 1B: 優先度B（3個）
+#### Phase 1B: 優先度B（2個）
 
 3. **DFUNC_ThrustReverser**
    - 標準状態変数追加（isOwner, hasPilot, trackingTarget）
@@ -43,16 +51,7 @@
    - SFEXT_G_Explode/RespawnButton追加
    - ResetStatus()メソッド実装
 
-4. **DFUNC_AdvancedThrustReverser**
-   - 標準状態変数追加
-   - DFUNC_LeftDial/RightDial実装
-   - trackingTarget保険設定追加
-   - Ownership管理ライフサイクル実装
-   - SFEXT_G_PilotEnter/Exit追加
-   - SFEXT_G_Explode/RespawnButton追加
-   - ResetStatus()実装（全エンジンのリバーサーをオフに）
-
-5. **DFUNC_MethodCaller**
+4. **DFUNC_MethodCaller**
    - **大規模クリーンアップ**: 過剰なデバッグログ削除
    - 標準状態変数追加
    - DFUNC_LeftDial/RightDial実装
@@ -73,7 +72,7 @@
 
 ### Phase 2: SFEXT検証 ✅ 完了
 
-**結果:** 13個中10個が既にパターン準拠（標準状態変数使用）
+**結果:** 14個中10個が既にパターン準拠（標準状態変数使用）
 
 **準拠済みコンポーネント:**
 - SFEXT_AdvancedEngine
@@ -81,6 +80,7 @@
 - SFEXT_AdvancedPropellerThrust
 - SFEXT_AuxiliaryPowerUnit
 - SFEXT_AutoStarter
+- SFEXT_AutoFlaps
 - SFEXT_Chock
 - SFEXT_InstrumentsAnimationDriver
 - SFEXT_Warning
@@ -117,7 +117,7 @@
    - DFUNC/SFEXT共通パターン、バスシステム、同期、状態管理、VR入力、サウンド管理、アニメーション、故障モデリング、リセット・初期化
 
 2. **COMPONENTS.md**
-   - 全37コンポーネントの一覧・分類
+   - 全36コンポーネントの一覧・分類
    - 依存関係マップ
    - 実装状況サマリー
 
@@ -131,10 +131,10 @@
 
 ### コード変更
 
-**変更ファイル数:** 9ファイル
-**追加行数:** 約350行
-**削除行数:** 約200行
-**正味追加:** 約150行
+**変更ファイル数:** 10ファイル（Phase 1E追加分: +2）
+**追加行数:** 約500行（Phase 1E追加分: +200）
+**削除行数:** 約250行（Phase 1E追加分: +50）
+**正味追加:** 約250行
 
 ---
 
@@ -192,16 +192,35 @@
 
 ### 5. パターン準拠率の改善
 
-**Before:** 26/37 (70%)
-**After:** 37/37 (100%)
+**Before:** 26/36 (72%)
+**After Phase 1-3:** 36/36 (100%)
+**After Phase 1E:** 36/36 (100%) + 検証完了率向上（25/37 → 26/37）
 
 全コンポーネントがPATTERNS.mdに準拠。
+
+### 6. DFUNC_AdvancedSpeedBrake差分更新パターン導入（Phase 1E）
+
+**課題:**
+- 初期実装ではAngle変化時のみExtraDrag/ExtraLift更新
+- SaccAirVehicleのExtraDrag共有により効果が消失
+
+**解決:**
+- DFUNC_Brake.cs（標準SFV）の差分更新パターンを採用
+- 毎フレームUpdate()で`-lastDrag + newDrag`方式で累積更新
+- Piloting状態チェックをSAVControl経由に統一
+- isOwnerガード追加
+
+**検証結果:**
+- ExtraDrag更新動作確認（Consoleログで検証）
+- SF-1での実機テスト完了
+- **注意**: 大型機ではdragMultiplier > 20推奨（標準値4.0は小型機向け）
 
 ---
 
 ## コミット履歴
 
 ```
+[未コミット] Phase 1E: Refactor DFUNC_AdvancedSpeedBrake to DFUNC_Brake differential pattern
 827c079 Phase 3: Extract common utilities to TSFEUtil
 93843ca Phase 1B: Refactor remaining DFUNC components to follow standard patterns (Priority B)
 dae733c Phase 1A: Refactor DFUNC components to follow standard patterns (Priority A)
@@ -249,9 +268,21 @@ ccf6515 Document common design patterns across TSFE codebase
 ## まとめ
 
 **実施期間:** 2026-04-11（1日）
-**Phase実施:** Phase 1（DFUNC）、Phase 2（SFEXT検証）、Phase 3（ユーティリティ）完了
-**パターン準拠率:** 70% → **100%**
+**Phase実施:**
+- Phase 1（DFUNC）完了
+- Phase 2（SFEXT検証）完了
+- Phase 3（ユーティリティ）完了
+- **Phase 1E（DFUNC_AdvancedSpeedBrake差分更新）完了**
 
-全37コンポーネントが共通パターンに準拠し、コードベースの一貫性・保守性・信頼性が大幅に向上しました。
+**パターン準拠率:** 72% → **100%**
+**検証完了率:** 25/37 (68%) → **26/37 (70%)**
+
+全36コンポーネントが共通パターンに準拠し、コードベースの一貫性・保守性・信頼性が大幅に向上しました。
+
+DFUNC_AdvancedSpeedBrakeは標準DFUNC_Brakeパターンに完全準拠し、SF-1での実機検証も完了しました。
 
 今後の開発では、PATTERNS.mdを参照することで、高品質なコードを効率的に実装できます。
+
+**備考:**
+- DFUNC_AdvancedThrustReverserは削除（SFEXT_AdvancedEngineが標準InvertThrustを使用するため不要）
+- DFUNC_AdvancedSpeedBrakeのdragMultiplier値は機体サイズに応じて調整必要（大型機: 20-100推奨）

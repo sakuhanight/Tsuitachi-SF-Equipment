@@ -13,6 +13,9 @@ namespace TSFE.DFUNC
         public float dragMultiplier = 1.4f;
         public float response = 1.0f;
 
+        [Header("Debug")]
+        public bool enableDebugLog = false;
+
         [Header("Inputs")]
         public float vrInputDistance = 0.1f;
         public float incrementStep = 0.5f;
@@ -37,6 +40,8 @@ namespace TSFE.DFUNC
 
         // コンポーネント固有の状態
         private Animator vehicleAnimator;
+        private float lastDrag = 0f;  // 前フレームで追加したDrag値（標準DFUNC_Brakeと同じパターン）
+        private float lastLift = 0f;  // 前フレームで追加したLift値
 
         [UdonSynced(UdonSyncMode.Smooth)][FieldChangeCallback(nameof(TargetAngle))] private float _targetAngle;
         public float TargetAngle
@@ -52,17 +57,11 @@ namespace TSFE.DFUNC
         }
 
         private float _angle;
-        private float Angle
+        public float Angle
         {
-            set
+            private set
             {
                 var clamped = Mathf.Clamp01(value);
-                var diff = clamped - _angle;
-
-                var sav = SAVControl;
-                sav.SetProgramVariable("ExtraLift", (float)sav.GetProgramVariable("ExtraLift") + diff * liftMultiplier);
-                sav.SetProgramVariable("ExtraDrag", (float)sav.GetProgramVariable("ExtraDrag") + diff * dragMultiplier);
-
                 if (vehicleAnimator) vehicleAnimator.SetFloat(floatParameterName, clamped);
                 _angle = clamped;
             }
@@ -128,6 +127,8 @@ namespace TSFE.DFUNC
         {
             isPilot = false;
             selected = false;
+            lastDrag = 0;
+            lastLift = 0;
         }
 
         public void SFEXT_O_TakeOwnership() { isOwner = true; }
@@ -152,10 +153,16 @@ namespace TSFE.DFUNC
         {
             TargetAngle = 0;
             Angle = 0;
+            lastDrag = 0;
+            lastLift = 0;
         }
 
         private void Update()
         {
+            if (!isOwner) return;  // 標準DFUNC_Brakeと同じパターン
+
+            float deltaTime = Time.deltaTime;
+
             // isPilot（左席Owner）または selected（ダイヤル選択中）なら入力処理
             if (isPilot || selected)
             {
@@ -164,9 +171,45 @@ namespace TSFE.DFUNC
                 else if (Input.GetKeyUp(desktopKey)) TargetAngle = 0.0f;
             }
 
+            // Angleの更新
             if (!Mathf.Approximately(TargetAngle, Angle))
             {
-                Angle = Mathf.MoveTowards(Angle, TargetAngle, response * Time.deltaTime);
+                Angle = Mathf.MoveTowards(Angle, TargetAngle, response * deltaTime);
+            }
+
+            // 毎フレームExtraDrag/ExtraLiftを更新（標準DFUNC_Brakeと同じパターン）
+            if (SAVControl)
+            {
+                var sav = SAVControl;
+                bool piloting = (bool)sav.GetProgramVariable("Piloting");
+
+                if (piloting)
+                {
+                    // Drag: 前フレームの値を引いて、新しい値を足す
+                    float extraDrag = (float)sav.GetProgramVariable("ExtraDrag");
+                    float newDrag = Angle * dragMultiplier;
+                    float dragToAdd = -lastDrag + newDrag;
+                    extraDrag += dragToAdd;
+                    lastDrag = newDrag;
+                    sav.SetProgramVariable("ExtraDrag", extraDrag);
+
+                    // Lift: 同様に差分方式
+                    float extraLift = (float)sav.GetProgramVariable("ExtraLift");
+                    float newLift = Angle * liftMultiplier;
+                    float liftToAdd = -lastLift + newLift;
+                    extraLift += liftToAdd;
+                    lastLift = newLift;
+                    sav.SetProgramVariable("ExtraLift", extraLift);
+
+                    if (enableDebugLog)
+                    {
+                        Debug.Log($"[SpeedBrake] Piloting={piloting}, Angle={Angle:F3}, ExtraDrag={extraDrag:F3} (added={dragToAdd:F3})");
+                    }
+                }
+                else if (enableDebugLog)
+                {
+                    Debug.Log($"[SpeedBrake] NOT Piloting (isPilot={isPilot})");
+                }
             }
         }
 

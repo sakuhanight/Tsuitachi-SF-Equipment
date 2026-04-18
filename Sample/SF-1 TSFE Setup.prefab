@@ -105,6 +105,99 @@ MonoBehaviour:
   serializedPublicVariablesBytesString: Ai8AAAAAATIAAABWAFIAQwAuAFUAZABvAG4ALgBDAG8AbQBtAG8AbgAuAFUAZABvAG4AVgBhAHIAaQBhAGIAbABlAFQAYQBiAGwAZQAsACAAVgBSAEMALgBVAGQAbwBuAC4AQwBvAG0AbQBvAG4AAAAAAAYBAAAAAAAAACcBBAAAAHQAeQBwAGUAAWgAAABTAHkAcwB0AGUAbQAuAEMAbwBsAGwAZQBjAHQAaQBvAG4AcwAuAEcAZQBuAGUAcgBpAGMALgBMAGkAcwB0AGAAMQBbAFsAVgBSAEMALgBVAGQAbwBuAC4AQwBvAG0AbQBvAG4ALgBJAG4AdABlAHIAZgBhAGMAZQBzAC4ASQBVAGQAbwBuAFYAYQByAGkAYQBiAGwAZQAsACAAVgBSAEMALgBVAGQAbwBuAC4AQwBvAG0AbQBvAG4AXQBdACwAIABtAHMAYwBvAHIAbABpAGIAAQEJAAAAVgBhAHIAaQBhAGIAbABlAHMALwEAAAABaAAAAFMAeQBzAHQAZQBtAC4AQwBvAGwAbABlAGMAdABpAG8AbgBzAC4ARwBlAG4AZQByAGkAYwAuAEwAaQBzAHQAYAAxAFsAWwBWAFIAQwAuAFUAZABvAG4ALgBDAG8AbQBtAG8AbgAuAEkAbgB0AGUAcgBmAGEAYwBlAHMALgBJAFUAZABvAG4AVgBhAHIAaQBhAGIAbABlACwAIABWAFIAQwAuAFUAZABvAG4ALgBDAG8AbQBtAG8AbgBdAF0ALAAgAG0AcwBjAG8AcgBsAGkAYgABAAAABgEAAAAAAAAAAi8CAAAAAUkAAABWAFIAQwAuAFUAZABvAG4ALgBDAG8AbQBtAG8AbgAuAFUAZABvAG4AVgBhAHIAaQBhAGIAbABlAGAAMQBbAFsAUwB5AHMAdABlAG0ALgBJAG4AdAAzADIALAAgAG0AcwBjAG8AcgBsAGkAYgBdAF0ALAAgAFYAUgBDAC4AVQBkAG8AbgAuAEMAbwBtAG0AbwBuAAIAAAAGAgAAAAAAAAAnAQQAAAB0AHkAcABlAAEXAAAAUwB5AHMAdABlAG0ALgBTAHQAcgBpAG4AZwAsACAAbQBzAGMAbwByAGwAaQBiACcBCgAAAFMAeQBtAGIAbwBsAE4AYQBtAGUAAR8AAABfAF8AXwBVAGQAbwBuAFMAaABhAHIAcABCAGUAaABhAHYAaQBvAHUAcgBWAGUAcgBzAGkAbwBuAF8AXwBfACcBBAAAAHQAeQBwAGUAARYAAABTAHkAcwB0AGUAbQAuAEkAbgB0ADMAMgAsACAAbQBzAGMAbwByAGwAaQBiABcBBQAAAFYAYQBsAHUAZQACAAAABwUHBQcF
   publicVariablesUnityEngineObjects: []
   publicVariablesSerializationDataFormat: 0
+--- !u!1 &224505676861898587
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 275283506830726773}
+  - component: {fileID: 8830659722407048598}
+  - component: {fileID: 2138367181866034337}
+  m_Layer: 17
+  m_Name: DFUNC_AdvancedSpeedBrake
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 0
+--- !u!4 &275283506830726773
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 224505676861898587}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 572760984659172690}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &8830659722407048598
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 224505676861898587}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 28b625ea6a2140b42822eafb0f7cb514, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  serializationData:
+    SerializedFormat: 2
+    SerializedBytes: 
+    ReferencedUnityObjects: []
+    SerializedBytesString: 
+    Prefab: {fileID: 0}
+    PrefabModificationsReferencedUnityObjects: []
+    PrefabModifications: []
+    SerializationNodes: []
+  _udonSharpBackingUdonBehaviour: {fileID: 2138367181866034337}
+  liftMultiplier: -0.6
+  dragMultiplier: 300
+  response: 1
+  enableDebugLog: 1
+  vrInputDistance: 0.1
+  incrementStep: 0.5
+  desktopKey: 98
+  floatParameterName: speedbrake
+  floatInputParameterName: speedbrakeinput
+  SAVControl: {fileID: 8888065541621582949}
+  Dial_Funcon: {fileID: 0}
+  Dial_Funcon_Array:
+  - {fileID: 9019087077350854327}
+--- !u!114 &2138367181866034337
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 224505676861898587}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 45115577ef41a5b4ca741ed302693907, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  interactTextPlacement: {fileID: 0}
+  interactText: Use
+  interactTextGO: {fileID: 0}
+  proximity: 2
+  SynchronizePosition: 0
+  AllowCollisionOwnershipTransfer: 0
+  Reliable: 0
+  _syncMethod: 2
+  serializedProgramAsset: {fileID: 11400000, guid: 9adeb45b81d49e5439fa672d73b550b7, type: 2}
+  programSource: {fileID: 11400000, guid: 5cc59df368396334397b8b06257cba9d, type: 2}
+  serializedPublicVariablesBytesString: Ai8AAAAAATIAAABWAFIAQwAuAFUAZABvAG4ALgBDAG8AbQBtAG8AbgAuAFUAZABvAG4AVgBhAHIAaQBhAGIAbABlAFQAYQBiAGwAZQAsACAAVgBSAEMALgBVAGQAbwBuAC4AQwBvAG0AbQBvAG4AAAAAAAYBAAAAAAAAACcBBAAAAHQAeQBwAGUAAWgAAABTAHkAcwB0AGUAbQAuAEMAbwBsAGwAZQBjAHQAaQBvAG4AcwAuAEcAZQBuAGUAcgBpAGMALgBMAGkAcwB0AGAAMQBbAFsAVgBSAEMALgBVAGQAbwBuAC4AQwBvAG0AbQBvAG4ALgBJAG4AdABlAHIAZgBhAGMAZQBzAC4ASQBVAGQAbwBuAFYAYQByAGkAYQBiAGwAZQAsACAAVgBSAEMALgBVAGQAbwBuAC4AQwBvAG0AbQBvAG4AXQBdACwAIABtAHMAYwBvAHIAbABpAGIAAQEJAAAAVgBhAHIAaQBhAGIAbABlAHMALwEAAAABaAAAAFMAeQBzAHQAZQBtAC4AQwBvAGwAbABlAGMAdABpAG8AbgBzAC4ARwBlAG4AZQByAGkAYwAuAEwAaQBzAHQAYAAxAFsAWwBWAFIAQwAuAFUAZABvAG4ALgBDAG8AbQBtAG8AbgAuAEkAbgB0AGUAcgBmAGEAYwBlAHMALgBJAFUAZABvAG4AVgBhAHIAaQBhAGIAbABlACwAIABWAFIAQwAuAFUAZABvAG4ALgBDAG8AbQBtAG8AbgBdAF0ALAAgAG0AcwBjAG8AcgBsAGkAYgABAAAABgEAAAAAAAAAAi8CAAAAAUkAAABWAFIAQwAuAFUAZABvAG4ALgBDAG8AbQBtAG8AbgAuAFUAZABvAG4AVgBhAHIAaQBhAGIAbABlAGAAMQBbAFsAUwB5AHMAdABlAG0ALgBJAG4AdAAzADIALAAgAG0AcwBjAG8AcgBsAGkAYgBdAF0ALAAgAFYAUgBDAC4AVQBkAG8AbgAuAEMAbwBtAG0AbwBuAAIAAAAGAgAAAAAAAAAnAQQAAAB0AHkAcABlAAEXAAAAUwB5AHMAdABlAG0ALgBTAHQAcgBpAG4AZwAsACAAbQBzAGMAbwByAGwAaQBiACcBCgAAAFMAeQBtAGIAbwBsAE4AYQBtAGUAAR8AAABfAF8AXwBVAGQAbwBuAFMAaABhAHIAcABCAGUAaABhAHYAaQBvAHUAcgBWAGUAcgBzAGkAbwBuAF8AXwBfACcBBAAAAHQAeQBwAGUAARYAAABTAHkAcwB0AGUAbQAuAEkAbgB0ADMAMgAsACAAbQBzAGMAbwByAGwAaQBiABcBBQAAAFYAYQBsAHUAZQACAAAABwUHBQcF
+  publicVariablesUnityEngineObjects: []
+  publicVariablesSerializationDataFormat: 0
 --- !u!1 &2407604378880407538
 GameObject:
   m_ObjectHideFlags: 0
@@ -1095,6 +1188,10 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 1369305745826210048, guid: dfac01739560d804aa95e6b42abab10d, type: 3}
+      propertyPath: autoEnabledOnStart
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1369305745826210048, guid: dfac01739560d804aa95e6b42abab10d, type: 3}
       propertyPath: serializationData.Prefab
       value: 
       objectReference: {fileID: 1369305745826210048, guid: dfac01739560d804aa95e6b42abab10d, type: 3}
@@ -1745,6 +1842,10 @@ PrefabInstance:
       propertyPath: serializationData.Prefab
       value: 
       objectReference: {fileID: 2742276248678471014, guid: be14b8a68162d46418cc50b37b7830da, type: 3}
+    - target: {fileID: 2776285996333573112, guid: be14b8a68162d46418cc50b37b7830da, type: 3}
+      propertyPath: m_Name
+      value: MFD_SpeedBrake
+      objectReference: {fileID: 0}
     - target: {fileID: 2866628517063217464, guid: be14b8a68162d46418cc50b37b7830da, type: 3}
       propertyPath: m_text
       value: REVERSE
@@ -1765,6 +1866,10 @@ PrefabInstance:
       propertyPath: serializationData.Prefab
       value: 
       objectReference: {fileID: 3419630226039685775, guid: be14b8a68162d46418cc50b37b7830da, type: 3}
+    - target: {fileID: 3560733434729752157, guid: be14b8a68162d46418cc50b37b7830da, type: 3}
+      propertyPath: m_Name
+      value: MFD_SpeedBrake_FUNCON
+      objectReference: {fileID: 0}
     - target: {fileID: 3629358063456874356, guid: be14b8a68162d46418cc50b37b7830da, type: 3}
       propertyPath: serializationData.Prefab
       value: 
@@ -2132,6 +2237,10 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 11400000, guid: b79c1175af5c1da418ad19f56049671a, type: 2}
     - target: {fileID: 5276425605407600479, guid: be14b8a68162d46418cc50b37b7830da, type: 3}
+      propertyPath: AirbrakeStrength
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5276425605407600479, guid: be14b8a68162d46418cc50b37b7830da, type: 3}
       propertyPath: serializationData.Prefab
       value: 
       objectReference: {fileID: 5276425605407600479, guid: be14b8a68162d46418cc50b37b7830da, type: 3}
@@ -2183,6 +2292,10 @@ PrefabInstance:
       propertyPath: Dial_Functions_R.Array.data[5]
       value: 
       objectReference: {fileID: 6598970105527592167}
+    - target: {fileID: 5888189282980273685, guid: be14b8a68162d46418cc50b37b7830da, type: 3}
+      propertyPath: Dial_Functions_R.Array.data[6]
+      value: 
+      objectReference: {fileID: 8830659722407048598}
     - target: {fileID: 5888189282980273685, guid: be14b8a68162d46418cc50b37b7830da, type: 3}
       propertyPath: ExtensionUdonBehaviours.Array.size
       value: 12
@@ -2261,6 +2374,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6709673183280231955, guid: be14b8a68162d46418cc50b37b7830da, type: 3}
       propertyPath: Rfunc6
+      value: 
+      objectReference: {fileID: 0}
+    - target: {fileID: 6709673183280231955, guid: be14b8a68162d46418cc50b37b7830da, type: 3}
+      propertyPath: Rfunc7
       value: 
       objectReference: {fileID: 0}
     - target: {fileID: 6709673183280231955, guid: be14b8a68162d46418cc50b37b7830da, type: 3}
@@ -2343,6 +2460,12 @@ PrefabInstance:
       propertyPath: serializationData.Prefab
       value: 
       objectReference: {fileID: 8550967549708424948, guid: be14b8a68162d46418cc50b37b7830da, type: 3}
+    - target: {fileID: 8590438341219974052, guid: be14b8a68162d46418cc50b37b7830da, type: 3}
+      propertyPath: m_text
+      value: 'SPEED
+
+        BRAKE'
+      objectReference: {fileID: 0}
     - target: {fileID: 8595978683072153693, guid: be14b8a68162d46418cc50b37b7830da, type: 3}
       propertyPath: serializedProgramAsset
       value: 
@@ -2398,6 +2521,7 @@ PrefabInstance:
     - {fileID: 7703632390135636005, guid: be14b8a68162d46418cc50b37b7830da, type: 3}
     - {fileID: 4016210451924826442, guid: be14b8a68162d46418cc50b37b7830da, type: 3}
     - {fileID: 4016210453197451805, guid: be14b8a68162d46418cc50b37b7830da, type: 3}
+    - {fileID: 4016210452720760409, guid: be14b8a68162d46418cc50b37b7830da, type: 3}
     m_AddedGameObjects:
     - targetCorrespondingSourceObject: {fileID: 4016210452684482708, guid: be14b8a68162d46418cc50b37b7830da, type: 3}
       insertIndex: -1
@@ -2450,6 +2574,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 5454603297613428152, guid: be14b8a68162d46418cc50b37b7830da, type: 3}
       insertIndex: 5
       addedObject: {fileID: 519160755299464445}
+    - targetCorrespondingSourceObject: {fileID: 5454603297613428152, guid: be14b8a68162d46418cc50b37b7830da, type: 3}
+      insertIndex: 6
+      addedObject: {fileID: 275283506830726773}
     - targetCorrespondingSourceObject: {fileID: 6326447617823049009, guid: be14b8a68162d46418cc50b37b7830da, type: 3}
       insertIndex: 11
       addedObject: {fileID: 1801697780576964663}
@@ -2530,6 +2657,11 @@ Animator:
 --- !u!224 &8934031123053214189 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 4016210453010239751, guid: be14b8a68162d46418cc50b37b7830da, type: 3}
+  m_PrefabInstance: {fileID: 5494532111605704938}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &9019087077350854327 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 3560733434729752157, guid: be14b8a68162d46418cc50b37b7830da, type: 3}
   m_PrefabInstance: {fileID: 5494532111605704938}
   m_PrefabAsset: {fileID: 0}
 --- !u!1001 &5612685770923497566

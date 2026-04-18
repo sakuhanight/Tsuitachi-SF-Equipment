@@ -1,0 +1,338 @@
+
+● エンブラエルE-175（リージョナルジェット機）向けのオートフラップ設定値を作成します。
+
+  エンブラエルE-175 機体諸元
+
+  | 項目           | 値                                        |
+  |--------------|------------------------------------------|
+  | 最大離陸重量（MTOW） | 38,790 kg                                |
+  | 最大巡航速度       | M0.82（約470 kt）                           |
+  | 座席数          | 76-88席                                   |
+  | エンジン         | GE CF34-8E × 2（推力 14,200 lbf = 63,000 N） |
+  | 翼面積          | 72.7 m²                                  |
+  | フラップ形式       | ファウラーフラップ                                |
+
+  ---
+  DFUNC_AdvancedFlaps 設定
+
+  Detents（フラップ角度）
+
+  Detents (Size: 6):
+  [0] 0    // UP（格納）
+  [1] 9    // Position 1
+  [2] 18   // Position 2
+  [3] 22   // Position 3
+  [4] 28   // Position 4
+  [5] 37   // FULL（最大展開）
+
+  Speed Limits（速度制限、KIAS）
+
+  Speed Limits (Size: 6):
+  [0] 340  // UP時の最大速度
+  [1] 220  // VFE Flaps 1
+  [2] 200  // VFE Flaps 2
+  [3] 180  // VFE Flaps 3
+  [4] 180  // VFE Flaps 4
+  [5] 165  // VFE Flaps FULL
+
+  物理パラメータ
+
+  | パラメータ           | 推奨値  | 理由                    |
+  |-----------------|------|-----------------------|
+  | Drag Multiplier | 1.6  | リージョナル機、SF-1より小型・軽量   |
+  | Lift Multiplier | 1.45 | ファウラーフラップの高揚力効果       |
+  | Response        | 1.2  | 展開速度（秒）、実機では約15秒だが簡略化 |
+
+  故障モデリング
+
+  | パラメータ                                          | 推奨値 |
+  |------------------------------------------------|-----|
+  | Mean Time Between Actuator Broken On Overspeed | 180 |
+  | Mean Time Between Wing Broken On Overspeed     | 360 |
+  | Overspeed Damage Multiplier                    | 8   |
+
+  ---
+  SFEXT_AutoFlaps 設定（Civilian モード）
+
+  Mode
+
+  Mode: 0 (Civilian)
+  民間機なので速度ベースの自動制御。
+
+  Schedule設定（6段階）
+
+  Schedule Flap Angle（目標フラップ角度、deg）
+
+  Schedule Flap Angle (Size: 6):
+  [0] 0    // UP
+  [1] 9    // Pos 1
+  [2] 18   // Pos 2
+  [3] 22   // Pos 3
+  [4] 28   // Pos 4
+  [5] 37   // FULL
+
+  Schedule Speed Max（最大速度、KIAS）
+
+  Schedule Speed Max (Size: 6):
+  [0] -1   // 無制限（高速巡航時はUP維持）
+  [1] 220  // 220kt以下でPos 1展開
+  [2] 200  // 200kt以下でPos 2展開
+  [3] 180  // 180kt以下でPos 3展開
+  [4] 180  // 180kt以下でPos 4展開
+  [5] 165  // 165kt以下でFULL展開
+
+  Schedule AoA Min（最小迎角、deg）
+
+  Schedule AoA Min (Size: 6):
+  [0] -1   // 無視（速度ベースのみ）
+  [1] -1
+  [2] -1
+  [3] -1
+  [4] -1
+  [5] -1
+
+  Schedule G Min（最小Gロード）
+
+  Schedule G Min (Size: 6):
+  [0] -1   // 無視
+  [1] -1
+  [2] -1
+  [3] -1
+  [4] -1
+  [5] -1
+
+  Schedule Mach Max（最大マッハ数）
+
+  Schedule Mach Max (Size: 6):
+  [0] -1   // 無視
+  [1] -1
+  [2] -1
+  [3] -1
+  [4] -1
+  [5] -1
+
+  Schedule Priority（優先度）
+
+  Schedule Priority (Size: 6):
+  [0] 0    // UP（最低優先度）
+  [1] 1    // Pos 1
+  [2] 2    // Pos 2
+  [3] 3    // Pos 3
+  [4] 4    // Pos 4
+  [5] 5    // FULL（最高優先度）
+
+  Hysteresis（ヒステリシス）
+
+  | パラメータ                   | 推奨値 | 説明                                |
+  |-------------------------|-----|-----------------------------------|
+  | Extend Hysteresis Knots | 5   | 展開時のマージン（例: 220kt+5kt=225ktで格納開始） |
+  | Retract Margin Knots    | 3   | 過速度保護マージン（例: 220kt-3kt=217ktで警告）  |
+
+  Inhibit（脚連動制限）
+
+  | パラメータ              | 推奨値  | 説明                    |
+  |--------------------|------|-----------------------|
+  | Inhibit On Gear Up | true | 脚収納中はフラップ展開禁止         |
+  | Inhibit Max Angle  | 0    | 脚収納中の最大許容角度（0°=UP のみ） |
+
+  ---
+  運用フロー例
+
+  離陸（Takeoff）
+
+  1. 地上: Flaps 2（18°）または Flaps 3（22°）を手動設定
+  2. 離陸滑走
+  3. Vr到達 → ピッチアップ
+  4. ポジティブクライム → ギアアップ
+  5. 速度増加 → 自動でFlaps 1（9°）に格納
+  6. 220kt超過 → 自動でUP（0°）に格納
+  7. 上昇継続
+
+  着陸（Landing）
+
+  1. 巡航: Flaps UP、速度 300-400kt
+  2. 降下開始
+  3. 速度減速 220kt以下 → 自動でFlaps 1展開（9°）
+  4. さらに減速 200kt以下 → 自動でFlaps 2展開（18°）
+  5. ファイナルアプローチ準備
+  6. 180kt以下 → 自動でFlaps 3展開（22°）
+  7. ギアダウン
+  8. 165kt以下 → 自動でFlaps FULL展開（37°）
+  9. Vref（約140kt）でアプローチ
+  10. 接地
+
+  手動上書き
+
+  - 自動フラップ動作中、手動でフラップレバー（F/Shift+F キー）を操作すると自動制御が一時停止
+  - レバーを離すと自動制御が再開
+
+  ---
+  Inspector設定例（Unity）
+
+  DFUNC_AdvancedFlaps
+
+  SAVControl: SaccAirVehicle
+  Dial_Funcon_Array: [DialFuncon_Flaps]
+
+  # Detents & Limits
+  Detents: [0, 9, 18, 22, 28, 37]
+  Speed Limits: [340, 220, 200, 180, 180, 165]
+
+  # Physics
+  Drag Multiplier: 1.6
+  Lift Multiplier: 1.45
+  Response: 1.2
+
+  # Input
+  Desktop Key: F (102)
+  VR Input Axis: (0, 0, 1)
+  Controller Sensitivity: 0.02
+
+  # Animation
+  Bool Parameter Name: "flaps"
+  Angle Parameter Name: "flapsangle"
+  Target Angle Parameter Name: "flapstarget"
+  Broken Parameter Name: "flapsbroken"
+
+  # Failures
+  Mean Time Between Actuator Broken On Overspeed: 180
+  Mean Time Between Wing Broken On Overspeed: 360
+  Overspeed Damage Multiplier: 8
+  Broken Drag Multiplier: 3.2
+  Broken Lift Multiplier: 0.25
+
+  # Haptics
+  Haptic Duration: 0.2
+  Haptic Amplitude: 0.5
+  Haptic Frequency: 0.1
+
+  # Debug
+  Debug Mode: false
+
+  SFEXT_AutoFlaps
+
+  Advanced Flaps: DFUNC_AdvancedFlaps
+  SAVControl: SaccAirVehicle
+
+  # Mode
+  Mode: 0 (Civilian)
+  Auto Enabled On Start: false
+
+  # Schedule
+  Schedule Flap Angle: [0, 9, 18, 22, 28, 37]
+  Schedule Speed Max: [-1, 220, 200, 180, 180, 165]
+  Schedule Aoa Min: [-1, -1, -1, -1, -1, -1]
+  Schedule G Min: [-1, -1, -1, -1, -1, -1]
+  Schedule Mach Max: [-1, -1, -1, -1, -1, -1]
+  Schedule Priority: [0, 1, 2, 3, 4, 5]
+
+  # Hysteresis
+  Extend Hysteresis Knots: 5
+  Retract Margin Knots: 3
+
+  # Inhibit
+  Inhibit On Gear Up: true
+  Inhibit Max Angle: 0
+
+  # Debug
+  Enable Debug Log: false
+
+  ---
+  テスト手順
+
+  1. 地上テスト
+
+  1. PlayModeで搭乗
+  2. FキーでFlaps 2（18°）設定
+  3. InspectorでDetent Index = 2、Angle = 0.486（18/37）を確認
+  4. 速度0ktで過速度警告が出ないことを確認
+
+  2. 離陸テスト
+
+  1. Flaps 2設定
+  2. スロットル最大
+  3. 離陸（約140kt）
+  4. ギアアップ
+  5. 速度220kt超過 → 自動でFlaps 1に格納（AutoFlaps有効時）
+  6. 速度220kt超過維持 → 自動でUPに格納
+
+  3. 着陸テスト
+
+  1. 巡航高度から降下開始
+  2. 速度減速 220kt → 自動でFlaps 1展開
+  3. 200kt → 自動でFlaps 2展開
+  4. 180kt → 自動でFlaps 3展開
+  5. ギアダウン
+  6. 165kt → 自動でFlaps FULL展開
+  7. Vref（140kt）でアプローチ
+  8. 接地、ブレーキ
+
+  4. 手動上書きテスト
+
+  1. 自動フラップ動作中
+  2. FキーでFlaps 4（28°）に手動設定
+  3. AutoFlapsが一時停止することを確認
+  4. InspectorでIsManualControlActive() = trueを確認
+  5. 速度変化してもフラップが自動変化しないことを確認
+
+  ---
+  SF-1との比較
+
+  | 項目              | SF-1（大型ジェット）                 | E-175（リージョナル機）        |
+  |-----------------|------------------------------|-----------------------|
+  | MTOW            | 約70,000 kg                   | 38,790 kg             |
+  | 推力              | 380,000 N（双発）                | 126,000 N（双発）         |
+  | Detents         | 9段階 [0,1,2,5,10,15,25,30,40] | 6段階 [0,9,18,22,28,37] |
+  | VFE FULL        | 162 kt                       | 165 kt                |
+  | Drag Multiplier | 1.4                          | 1.6                   |
+  | Lift Multiplier | 1.35                         | 1.45                  |
+  | 運用              | 長距離国際線                       | 短中距離地域路線              |
+
+  主な違い:
+  - E-175はフラップ段数が少ない（6段 vs 9段）
+  - E-175は軽量なため、同じ抗力でもdragMultiplierを高めに設定
+  - E-175のVFEは若干速い（165kt vs 162kt）
+  - E-175はファウラーフラップ採用により揚力係数が高い
+
+  ---
+  トラブルシューティング
+
+  問題: 自動フラップが展開されない
+
+  原因候補:
+  1. Advanced Flapsフィールドが未設定
+  2. Schedule Speed Maxが空配列
+  3. 速度が閾値に達していない（220kt以下になっていない）
+  4. 手動操作中（IsManualControlActive() = true）
+
+  対策:
+  1. DFUNC_AdvancedFlapsを設定
+  2. 上記のSchedule設定を入力
+  3. InspectorでAirSpeedを確認
+  4. 手動レバーを離す
+
+  問題: フラップが頻繁に展開/格納を繰り返す（チャタリング）
+
+  原因: Hysteresisが小さすぎる
+
+  対策:
+  Extend Hysteresis Knots: 5 → 10に増やす
+
+  問題: 脚を下ろしてもフラップが展開できない
+
+  原因: Inhibit On Gear Up = trueで、ギアが完全にダウンしていない
+
+  対策:
+  1. ギアが完全にダウンするまで待つ（約10秒）
+  2. またはInhibit On Gear Up = falseに変更（非推奨）
+
+  ---
+  この設定でE-175のリアルな運用を再現できます。必要に応じて、実機データやゲームバランスに応じて微調整してください。
+
+● How is Claude doing this session? (optional)
+  1: Bad    2: Fine   3: Good   0: Dismiss
+
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+> 
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ accept edits on (shift+tab to cycle)
