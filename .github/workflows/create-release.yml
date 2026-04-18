@@ -133,18 +133,20 @@ jobs:
           PACKAGE_NAME=$(jq -r '.name' "$PACKAGE_JSON")
           DISPLAY_NAME=$(jq -r '.displayName' "$PACKAGE_JSON")
           DESCRIPTION=$(jq -r '.description // ""' "$PACKAGE_JSON")
-          AUTHOR=$(jq -c '.author // {"name": "sakuhanight"}' "$PACKAGE_JSON")
+          AUTHOR_NAME=$(jq -r '.author.name // "sakuhanight"' "$PACKAGE_JSON")
           UNITY=$(jq -r '.unity // ""' "$PACKAGE_JSON")
           LICENSE=$(jq -r '.license // ""' "$PACKAGE_JSON")
-          VPM_DEPS=$(jq -c '.vpmDependencies // {}' "$PACKAGE_JSON")
+
+          # Extract VPM dependencies as space-separated key:value pairs
+          VPM_DEPS_JSON=$(jq -c '.vpmDependencies // {}' "$PACKAGE_JSON")
 
           echo "name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
           echo "display_name=$DISPLAY_NAME" >> $GITHUB_OUTPUT
           echo "description=$DESCRIPTION" >> $GITHUB_OUTPUT
-          echo "author=$AUTHOR" >> $GITHUB_OUTPUT
+          echo "author_name=$AUTHOR_NAME" >> $GITHUB_OUTPUT
           echo "unity=$UNITY" >> $GITHUB_OUTPUT
           echo "license=$LICENSE" >> $GITHUB_OUTPUT
-          echo "vpm_dependencies=$VPM_DEPS" >> $GITHUB_OUTPUT
+          echo "vpm_dependencies=$VPM_DEPS_JSON" >> $GITHUB_OUTPUT
 
       - name: Call VPM update workflow
         continue-on-error: true
@@ -154,19 +156,18 @@ jobs:
           repo: sakuhanight/vpm.t7i.io
           ref: main
           token: ${{ secrets.VPM_REPO_PAT }}
-          inputs: |
+          inputs: >-
             {
               "package_name": "${{ steps.package.outputs.name }}",
               "package_display_name": "${{ steps.package.outputs.display_name }}",
               "package_version": "${{ github.event.inputs.version }}",
               "release_url": "https://github.com/${{ github.repository }}/releases/download/v${{ github.event.inputs.version }}/${{ github.event.repository.name }}-v${{ github.event.inputs.version }}.zip",
               "package_description": "${{ steps.package.outputs.description }}",
-              "package_author": "${{ steps.package.outputs.author }}",
+              "package_author_name": "${{ steps.package.outputs.author_name }}",
               "unity_version": "${{ steps.package.outputs.unity }}",
               "license": "${{ steps.package.outputs.license }}",
               "homepage": "https://github.com/${{ github.repository }}",
               "documentation_url": "https://github.com/${{ github.repository }}/wiki",
               "changelog_url": "https://github.com/${{ github.repository }}/releases",
-              "repository": "{\"type\": \"git\", \"url\": \"https://github.com/${{ github.repository }}.git\"}",
-              "vpm_dependencies": "${{ steps.package.outputs.vpm_dependencies }}"
+              "vpm_dependencies": ${{ steps.package.outputs.vpm_dependencies }}
             }
