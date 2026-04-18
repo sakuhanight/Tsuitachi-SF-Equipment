@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Release version (e.g., 1.0.0 - without v prefix)'
+        description: "Release version (e.g., 1.0.0 - without v prefix)"
         required: true
         type: string
 
@@ -73,10 +73,6 @@ jobs:
 
           git add packages/net.tsuitachi.sf-equipment/package.json
           git commit -m "Bump version to ${{ github.event.inputs.version }}
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-Co-Authored-By: Claude <noreply@anthropic.com>"
 
       - name: Create and push tag
         run: |
