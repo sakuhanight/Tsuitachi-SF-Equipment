@@ -132,4 +132,5 @@ jobs:
       homepage: https://github.com/${{ github.repository }}
       documentation_url: https://github.com/${{ github.repository }}/wiki
       changelog_url: https://github.com/${{ github.repository }}/releases
-    secrets: inherit
+    secrets:
+      VPM_REPO_TOKEN: ${{ secrets.VPM_REPO_TOKEN }}
